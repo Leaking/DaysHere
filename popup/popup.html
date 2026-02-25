@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>横琴驻留统计</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- 标题栏 -->
+    <header class="header">
+      <h1>横琴天数统计</h1>
+      <div class="location-status" id="locationStatus">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">检测中...</span>
+      </div>
+    </header>
+
+    <!-- 年度统计 -->
+    <div class="stats-bar">
+      <div class="stat-item">
+        <span class="stat-label">自然日</span>
+        <div class="stat-numbers">
+          <span class="stat-value" id="naturalDays">0</span>
+          <span class="stat-target">/ 183</span>
+        </div>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-item">
+        <span class="stat-label">工作日</span>
+        <div class="stat-numbers">
+          <span class="stat-value" id="workDays">0</span>
+          <span class="stat-target">/ 24</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 月份导航 -->
+    <div class="month-nav">
+      <button class="nav-btn" id="prevMonth">&lt;</button>
+      <span class="month-title" id="monthTitle">2026年1月</span>
+      <button class="nav-btn" id="nextMonth">&gt;</button>
+    </div>
+
+    <!-- 当月小统计 -->
+    <div class="month-stats" id="monthStats">
+      <span>本月：自然日 <strong id="monthNatural">0</strong> 天 / 工作日 <strong id="monthWork">0</strong> 天</span>
+    </div>
+
+    <!-- 日历 -->
+    <div class="calendar">
+      <div class="calendar-header">
+        <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span>
+        <span class="weekend">六</span><span class="weekend">日</span>
+      </div>
+      <div class="calendar-body" id="calendarBody"></div>
+    </div>
+
+    <!-- 图例 -->
+    <div class="legend">
+      <div class="legend-item">
+        <span class="legend-dot hengqin"></span><span>在横琴</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-dot leave"></span><span>请假</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-dot bridged"></span><span>假期桥接</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-dot holiday"></span><span>假期/周末</span>
+      </div>
+    </div>
+
+    <div class="privacy-note">
+      <span class="privacy-icon">&#x1f512;</span>
+      数据仅存于您的 Google 账号中，无第三方服务器，换设备自动同步
+    </div>
+  </div>
+
+  <script src="../utils/holidays.js"></script>
+  <script src="../utils/location.js"></script>
+  <script src="../utils/calculator.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
