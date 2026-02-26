@@ -222,8 +222,8 @@ body {
 
 /* 非工作日（周末/假期）底色 */
 .calendar-day.non-workday {
-  color: #999;
-  background: #fafafa;
+  color: #c0616b;
+  background: #fff0f0;
 }
 
 /* 在横琴 */
@@ -323,8 +323,8 @@ body {
 }
 
 .legend-dot.holiday {
-  background: #fafafa;
-  border: 1px solid #e0e0e0;
+  background: #fff0f0;
+  border: 1px solid #f5c0c4;
 }
 
 .privacy-note {
@@ -338,6 +338,23 @@ body {
 .privacy-icon {
   font-size: 10px;
   margin-right: 2px;
+}
+
+.feature-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 8px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: #f8f8ff;
+  border-radius: 8px;
+  border: 1px solid #ebebff;
+}
+
+.feature-item {
+  font-size: 10px;
+  color: #888;
+  line-height: 1.6;
 }
 
 /* 右键菜单 */
