@@ -156,7 +156,9 @@ function renderCalendar() {
 
     dayEl.addEventListener('contextmenu', (e) => {
       e.preventDefault();
-      showContextMenu(e, dateStr);
+      if (!HolidayUtils.isHoliday(dateStr)) {
+        showContextMenu(e, dateStr);
+      }
     });
     dayEl.addEventListener('mouseenter', (e) => showTooltip(e, dateStr));
     dayEl.addEventListener('mouseleave', hideTooltip);
@@ -315,22 +317,33 @@ async function checkLocationNow() {
     const position = await new Promise((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(resolve, reject, {
         enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 300000,
+      });
+    }).catch(() => new Promise((resolve, reject) => {
+      // 高精度失败，降级到低精度（WiFi/IP 定位）
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: false,
         timeout: 15000,
         maximumAge: 300000,
       });
-    });
+    }));
 
     const lat = position.coords.latitude;
     const lng = position.coords.longitude;
     const inHengqin = LocationUtils.isInHengqin(lat, lng);
     const today = HolidayUtils.formatDate(new Date());
+    const locationRecord = { lat, lng, time: position.timestamp || Date.now(), inHengqin };
 
-    // 通知 service worker 保存记录
-    await chrome.runtime.sendMessage({
-      type: 'SAVE_LOCATION',
-      dateStr: today,
-      location: { lat, lng, time: position.timestamp || Date.now(), inHengqin },
-    });
+    // 直接更新本地数据，立即标记
+    const dayKey = `day_${today}`;
+    if (!allDayData[dayKey]) {
+      allDayData[dayKey] = { inHengqin: false, isLeave: false, manualHengqin: false, locations: [] };
+    }
+    if (inHengqin) {
+      allDayData[dayKey].inHengqin = true;
+    }
+    allDayData[dayKey].locations.push(locationRecord);
 
     if (inHengqin) {
       statusDot.className = 'status-dot active';
@@ -340,9 +353,17 @@ async function checkLocationNow() {
       statusText.textContent = '当前不在横琴';
     }
 
-    await loadAllData();
+    // 立即重算桥接 + 渲染
+    bridgedDays = Calculator.calculateBridgedDays(allDayData);
     renderCalendar();
     updateStats();
+
+    // 后台持久化到 service worker（不阻塞 UI）
+    chrome.runtime.sendMessage({
+      type: 'SAVE_LOCATION',
+      dateStr: today,
+      location: locationRecord,
+    });
   } catch (err) {
     statusDot.className = 'status-dot error';
     if (err.code === 1) statusText.textContent = '请允许定位权限';

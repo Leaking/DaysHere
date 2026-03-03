@@ -20,6 +20,7 @@ async function getLocation() {
       return;
     }
 
+    // 先尝试高精度，失败后降级到低精度
     navigator.geolocation.getCurrentPosition(
       (position) => {
         resolve({
@@ -29,12 +30,30 @@ async function getLocation() {
           timestamp: position.timestamp,
         });
       },
-      (error) => {
-        resolve({ error: `定位失败: ${error.message} (code: ${error.code})` });
+      (highAccError) => {
+        // 高精度失败，尝试低精度（Mac 无 GPS，WiFi/IP 定位即可）
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            resolve({
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+              timestamp: position.timestamp,
+            });
+          },
+          (lowAccError) => {
+            resolve({ error: `定位失败: ${lowAccError.message} (code: ${lowAccError.code})` });
+          },
+          {
+            enableHighAccuracy: false,
+            timeout: 15000,
+            maximumAge: 300000,
+          }
+        );
       },
       {
         enableHighAccuracy: true,
-        timeout: 15000,
+        timeout: 10000,
         maximumAge: 300000, // 5分钟缓存
       }
     );
