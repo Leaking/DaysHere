@@ -31,6 +31,9 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 let offscreenReady = false;
 let offscreenReadyResolve = null;
 
+// 后台定位重试标志
+let bgRetryPending = false;
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'SAVE_LOCATION') {
     saveLocationRecord(message.dateStr, message.location)
@@ -52,6 +55,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     handleLocationResult(message);
     return;
   }
+  if (message.type === 'SAVE_ERROR_LOG') {
+    saveErrorLog(message.source || 'unknown', message.error, message.code);
+    return;
+  }
 });
 
 async function checkLocation() {
@@ -67,8 +74,29 @@ async function checkLocation() {
 async function handleLocationResult(message) {
   if (message.error) {
     console.warn('[横琴统计] 后台定位失败:', message.error);
+    saveErrorLog('background', message.error);
+
+    // 首次失败：等 10s 后重试一次
+    if (!bgRetryPending) {
+      bgRetryPending = true;
+      setTimeout(async () => {
+        try {
+          console.log('[横琴统计] 后台定位重试...');
+          await ensureOffscreenDocument();
+          await waitForOffscreenReady();
+          chrome.runtime.sendMessage({ type: 'GET_LOCATION' });
+        } catch (err) {
+          console.error('[横琴统计] 重试出错:', err);
+        } finally {
+          bgRetryPending = false;
+        }
+      }, 10000);
+    }
     return;
   }
+
+  // 成功时清除重试标志
+  bgRetryPending = false;
 
   const inHengqin = LocationUtils.isInHengqin(message.lat, message.lng);
   const today = HolidayUtils.formatDate(new Date());
@@ -174,6 +202,32 @@ async function migrateOldData() {
     }
     console.log('[横琴统计] 数据迁移完成，已将', Object.keys(syncBatch).length, '天的数据迁移到 sync');
   }
+}
+
+/**
+ * 保存定位错误日志到 local storage
+ * key: errlog_YYYY-MM-DD，每天最多 20 条
+ */
+async function saveErrorLog(source, errorMsg, code) {
+  const today = HolidayUtils.formatDate(new Date());
+  const logKey = `errlog_${today}`;
+
+  const result = await chrome.storage.local.get(logKey);
+  const logs = result[logKey] || [];
+
+  logs.push({
+    time: new Date().toISOString(),
+    source,
+    error: String(errorMsg),
+    code: code || null,
+  });
+
+  // 每天最多 20 条，超出截断旧的
+  if (logs.length > 20) {
+    logs.splice(0, logs.length - 20);
+  }
+
+  await chrome.storage.local.set({ [logKey]: logs });
 }
 
 function updateBadge(inHengqin) {

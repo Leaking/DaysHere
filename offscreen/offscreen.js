@@ -13,49 +13,55 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 });
 
-async function getLocation() {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) {
-      resolve({ error: 'Geolocation API 不可用' });
-      return;
-    }
-
-    // 先尝试高精度，失败后降级到低精度
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        resolve({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          timestamp: position.timestamp,
-        });
-      },
-      (highAccError) => {
-        // 高精度失败，尝试低精度（Mac 无 GPS，WiFi/IP 定位即可）
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            resolve({
-              lat: position.coords.latitude,
-              lng: position.coords.longitude,
-              accuracy: position.coords.accuracy,
-              timestamp: position.timestamp,
-            });
-          },
-          (lowAccError) => {
-            resolve({ error: `定位失败: ${lowAccError.message} (code: ${lowAccError.code})` });
-          },
-          {
-            enableHighAccuracy: false,
-            timeout: 15000,
-            maximumAge: 300000,
-          }
-        );
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 300000, // 5分钟缓存
-      }
-    );
+function geoPromise(highAccuracy, timeout) {
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: highAccuracy,
+      timeout,
+      maximumAge: 300000,
+    });
   });
+}
+
+function positionResult(position) {
+  return {
+    lat: position.coords.latitude,
+    lng: position.coords.longitude,
+    accuracy: position.coords.accuracy,
+    timestamp: position.timestamp,
+  };
+}
+
+function delay(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function getLocation() {
+  if (!navigator.geolocation) {
+    return { error: 'Geolocation API 不可用', timestamp: Date.now() };
+  }
+
+  // 高精度(10s) → 低精度(30s) → 等3s → 再试低精度(30s) → 放弃
+  try {
+    return positionResult(await geoPromise(true, 10000));
+  } catch (_highErr) {
+    // 高精度失败，尝试低精度
+  }
+
+  try {
+    return positionResult(await geoPromise(false, 30000));
+  } catch (_lowErr) {
+    // 低精度也失败，等 3s 重试一次
+  }
+
+  await delay(3000);
+
+  try {
+    return positionResult(await geoPromise(false, 30000));
+  } catch (retryErr) {
+    return {
+      error: `定位失败: ${retryErr.message} (code: ${retryErr.code})`,
+      timestamp: Date.now(),
+    };
+  }
 }

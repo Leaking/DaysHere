@@ -300,6 +300,28 @@ function updateMonthStats() {
 
 // ─── 定位 ───────────────────────────────────────────
 
+function popupGeoPromise(highAccuracy, timeout) {
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: highAccuracy,
+      timeout,
+      maximumAge: 300000,
+    });
+  });
+}
+
+/**
+ * 尝试一轮定位：高精度(10s) → 低精度(30s)
+ */
+async function tryGetPosition() {
+  try {
+    return await popupGeoPromise(true, 10000);
+  } catch (_highErr) {
+    // 高精度失败，降级到低精度
+  }
+  return await popupGeoPromise(false, 30000);
+}
+
 async function checkLocationNow() {
   const statusDot = document.getElementById('statusDot');
   const statusText = document.getElementById('statusText');
@@ -313,65 +335,69 @@ async function checkLocationNow() {
     return;
   }
 
+  let position;
   try {
-    const position = await new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 300000,
+    position = await tryGetPosition();
+  } catch (firstErr) {
+    // 首次失败，等 3s 重试一次
+    statusText.textContent = '重试定位中...';
+    await new Promise((r) => setTimeout(r, 3000));
+    try {
+      position = await tryGetPosition();
+    } catch (retryErr) {
+      statusDot.className = 'status-dot error';
+      if (retryErr.code === 1) statusText.textContent = '请允许定位权限';
+      else if (retryErr.code === 2) statusText.textContent = '无法获取位置';
+      else if (retryErr.code === 3) statusText.textContent = '定位超时';
+      else statusText.textContent = '定位异常';
+      console.error('定位失败（重试后）:', retryErr);
+
+      // 写错误日志到 storage
+      chrome.runtime.sendMessage({
+        type: 'SAVE_ERROR_LOG',
+        source: 'popup',
+        error: retryErr.message || String(retryErr),
+        code: retryErr.code || null,
       });
-    }).catch(() => new Promise((resolve, reject) => {
-      // 高精度失败，降级到低精度（WiFi/IP 定位）
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: false,
-        timeout: 15000,
-        maximumAge: 300000,
-      });
-    }));
-
-    const lat = position.coords.latitude;
-    const lng = position.coords.longitude;
-    const inHengqin = LocationUtils.isInHengqin(lat, lng);
-    const today = HolidayUtils.formatDate(new Date());
-    const locationRecord = { lat, lng, time: position.timestamp || Date.now(), inHengqin };
-
-    // 直接更新本地数据，立即标记
-    const dayKey = `day_${today}`;
-    if (!allDayData[dayKey]) {
-      allDayData[dayKey] = { inHengqin: false, isLeave: false, manualHengqin: false, locations: [] };
+      return;
     }
-    if (inHengqin) {
-      allDayData[dayKey].inHengqin = true;
-    }
-    allDayData[dayKey].locations.push(locationRecord);
-
-    if (inHengqin) {
-      statusDot.className = 'status-dot active';
-      statusText.textContent = '当前在横琴';
-    } else {
-      statusDot.className = 'status-dot inactive';
-      statusText.textContent = '当前不在横琴';
-    }
-
-    // 立即重算桥接 + 渲染
-    bridgedDays = Calculator.calculateBridgedDays(allDayData);
-    renderCalendar();
-    updateStats();
-
-    // 后台持久化到 service worker（不阻塞 UI）
-    chrome.runtime.sendMessage({
-      type: 'SAVE_LOCATION',
-      dateStr: today,
-      location: locationRecord,
-    });
-  } catch (err) {
-    statusDot.className = 'status-dot error';
-    if (err.code === 1) statusText.textContent = '请允许定位权限';
-    else if (err.code === 2) statusText.textContent = '无法获取位置';
-    else if (err.code === 3) statusText.textContent = '定位超时';
-    else statusText.textContent = '定位异常';
-    console.error('定位失败:', err);
   }
+
+  const lat = position.coords.latitude;
+  const lng = position.coords.longitude;
+  const inHengqin = LocationUtils.isInHengqin(lat, lng);
+  const today = HolidayUtils.formatDate(new Date());
+  const locationRecord = { lat, lng, time: position.timestamp || Date.now(), inHengqin };
+
+  // 直接更新本地数据，立即标记
+  const dayKey = `day_${today}`;
+  if (!allDayData[dayKey]) {
+    allDayData[dayKey] = { inHengqin: false, isLeave: false, manualHengqin: false, locations: [] };
+  }
+  if (inHengqin) {
+    allDayData[dayKey].inHengqin = true;
+  }
+  allDayData[dayKey].locations.push(locationRecord);
+
+  if (inHengqin) {
+    statusDot.className = 'status-dot active';
+    statusText.textContent = '当前在横琴';
+  } else {
+    statusDot.className = 'status-dot inactive';
+    statusText.textContent = '当前不在横琴';
+  }
+
+  // 立即重算桥接 + 渲染
+  bridgedDays = Calculator.calculateBridgedDays(allDayData);
+  renderCalendar();
+  updateStats();
+
+  // 后台持久化到 service worker（不阻塞 UI）
+  chrome.runtime.sendMessage({
+    type: 'SAVE_LOCATION',
+    dateStr: today,
+    location: locationRecord,
+  });
 }
 
 // ─── Tooltip ────────────────────────────────────────
