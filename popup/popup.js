@@ -14,11 +14,18 @@ if (new Date().getFullYear() !== 2026) {
   currentMonth = 1;
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-  await loadAllData();
+document.addEventListener('DOMContentLoaded', () => {
+  // 先渲染空日历，让 popup 秒开
   renderCalendar();
-  updateStats();
-  checkLocationNow();
+
+  // 异步加载 sync 数据（轻量）后刷新
+  loadAllData().then(() => {
+    renderCalendar();
+    updateStats();
+    checkLocationNow();
+    // GPS 日志延迟加载，不阻塞 UI
+    setTimeout(loadGpsLogs, 0);
+  });
 
   document.getElementById('prevMonth').addEventListener('click', () => {
     if (currentMonth > 1) {
@@ -36,48 +43,87 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  document.getElementById('exportBtn').addEventListener('click', exportData);
+  document.getElementById('importBtn').addEventListener('click', () => {
+    document.getElementById('importFile').click();
+  });
+  document.getElementById('importFile').addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+      importData(e.target.files[0]);
+      e.target.value = '';
+    }
+  });
+
 });
 
 // ─── 数据加载 ───────────────────────────────────────
 
 /**
- * 从 sync + local 合并加载所有日期数据
+ * 快速加载：只读 sync 日状态（~29KB），跳过 GPS 日志
  */
 async function loadAllData() {
-  const [syncResult, localResult] = await Promise.all([
-    chrome.storage.sync.get(null),
-    chrome.storage.local.get(null),
-  ]);
+  const syncResult = await chrome.storage.sync.get(null);
 
   allDayData = {};
-
-  // 先加载 sync 的状态标记
   for (const [key, value] of Object.entries(syncResult)) {
     if (key.startsWith('day_')) {
-      allDayData[key] = { ...value, locations: [] };
-    }
-  }
-
-  // 再合并 local 的 GPS 日志
-  for (const [key, value] of Object.entries(localResult)) {
-    if (key.startsWith('loc_')) {
-      const dayKey = 'day_' + key.slice(4); // loc_2026-01-15 → day_2026-01-15
-      if (allDayData[dayKey]) {
-        allDayData[dayKey].locations = value || [];
-      } else {
-        // local 有 GPS 记录但 sync 没有状态（可能是旧数据迁移）
-        const hasGpsHengqin = (value || []).some(l => l.inHengqin);
-        allDayData[dayKey] = {
-          inHengqin: hasGpsHengqin,
-          isLeave: false,
-          manualHengqin: false,
-          locations: value || [],
-        };
-      }
+      allDayData[key] = { ...value, locations: null };
     }
   }
 
   bridgedDays = Calculator.calculateBridgedDays(allDayData);
+}
+
+/**
+ * 延迟加载 GPS 日志到内存，补全孤立的 local 记录
+ */
+let gpsLogsLoaded = false;
+async function loadGpsLogs() {
+  if (gpsLogsLoaded) return;
+  const localResult = await chrome.storage.local.get(null);
+  let changed = false;
+
+  for (const [key, value] of Object.entries(localResult)) {
+    if (key.startsWith('loc_')) {
+      const dayKey = 'day_' + key.slice(4);
+      if (allDayData[dayKey]) {
+        allDayData[dayKey].locations = value || [];
+      } else {
+        const hasGpsHengqin = (value || []).some(l => l.inHengqin);
+        if (hasGpsHengqin) {
+          allDayData[dayKey] = {
+            inHengqin: true, isLeave: false, manualHengqin: false,
+            locations: value || [],
+          };
+          changed = true;
+        }
+      }
+    }
+  }
+
+  gpsLogsLoaded = true;
+  if (changed) {
+    bridgedDays = Calculator.calculateBridgedDays(allDayData);
+    renderCalendar();
+    updateStats();
+  }
+}
+
+/**
+ * 按需加载单天 GPS 日志（用于取消手动标记时的回退判断）
+ */
+async function ensureDayLocations(dateStr) {
+  const dayKey = `day_${dateStr}`;
+  if (allDayData[dayKey] && allDayData[dayKey].locations) {
+    return allDayData[dayKey].locations;
+  }
+  const locKey = `loc_${dateStr}`;
+  const result = await chrome.storage.local.get(locKey);
+  const locations = result[locKey] || [];
+  if (allDayData[dayKey]) {
+    allDayData[dayKey].locations = locations;
+  }
+  return locations;
 }
 
 /**
@@ -252,14 +298,15 @@ function hideContextMenu() {
 
 async function applyManualHengqin(dateStr, mark) {
   const key = `day_${dateStr}`;
-  const dayData = allDayData[key] || { inHengqin: false, isLeave: false, manualHengqin: false, locations: [] };
+  const dayData = allDayData[key] || { inHengqin: false, isLeave: false, manualHengqin: false, locations: null };
 
   dayData.manualHengqin = mark;
   if (mark) {
     dayData.inHengqin = true;
   } else {
-    const hasGpsHengqin = dayData.locations && dayData.locations.some(l => l.inHengqin);
-    dayData.inHengqin = hasGpsHengqin;
+    // 取消手动标记时，按需加载 GPS 日志判断是否保留
+    const locations = await ensureDayLocations(dateStr);
+    dayData.inHengqin = locations.some(l => l.inHengqin);
   }
 
   allDayData[key] = dayData;
@@ -272,7 +319,7 @@ async function applyManualHengqin(dateStr, mark) {
 
 async function applyLeave(dateStr, isLeave) {
   const key = `day_${dateStr}`;
-  const dayData = allDayData[key] || { inHengqin: false, isLeave: false, manualHengqin: false, locations: [] };
+  const dayData = allDayData[key] || { inHengqin: false, isLeave: false, manualHengqin: false, locations: null };
 
   dayData.isLeave = isLeave;
   allDayData[key] = dayData;
@@ -377,6 +424,7 @@ async function checkLocationNow() {
   if (inHengqin) {
     allDayData[dayKey].inHengqin = true;
   }
+  if (!allDayData[dayKey].locations) allDayData[dayKey].locations = [];
   allDayData[dayKey].locations.push(locationRecord);
 
   if (inHengqin) {
@@ -429,7 +477,7 @@ function showTooltip(event, dateStr) {
   }
 
   if (dayData && dayData.locations && dayData.locations.length > 0) {
-    lines.push(`定位记录: ${dayData.locations.length}次`);
+    lines.push(`定位: ${dayData.locations.length}次`);
   }
 
   lines.push('右键 → 标记/请假');
@@ -454,4 +502,84 @@ function hideTooltip() {
     tooltipEl.remove();
     tooltipEl = null;
   }
+}
+
+// ─── 导出/导入 ──────────────────────────────────────
+
+function showDataMsg(text, isError) {
+  const el = document.getElementById('dataMsg');
+  el.textContent = text;
+  el.className = isError ? 'data-msg error' : 'data-msg';
+  setTimeout(() => { el.textContent = ''; }, 3000);
+}
+
+async function exportData() {
+  const syncResult = await chrome.storage.sync.get(null);
+  const data = {};
+  for (const [key, value] of Object.entries(syncResult)) {
+    if (key.startsWith('day_')) {
+      data[key] = value;
+    }
+  }
+
+  if (Object.keys(data).length === 0) {
+    showDataMsg('暂无数据可导出', true);
+    return;
+  }
+
+  const exportObj = {
+    version: 1,
+    exportDate: new Date().toISOString(),
+    data,
+  };
+
+  const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `hq-backup-${HolidayUtils.formatDate(new Date())}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showDataMsg('导出成功');
+}
+
+async function importData(file) {
+  let text;
+  try {
+    text = await file.text();
+  } catch {
+    showDataMsg('文件读取失败', true);
+    return;
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    showDataMsg('JSON 格式错误', true);
+    return;
+  }
+
+  if (!parsed || parsed.version !== 1 || typeof parsed.data !== 'object') {
+    showDataMsg('无效的备份文件', true);
+    return;
+  }
+
+  const entries = {};
+  for (const [key, value] of Object.entries(parsed.data)) {
+    if (key.startsWith('day_') && typeof value === 'object') {
+      entries[key] = value;
+    }
+  }
+
+  if (Object.keys(entries).length === 0) {
+    showDataMsg('备份文件中无有效数据', true);
+    return;
+  }
+
+  await chrome.storage.sync.set(entries);
+  await loadAllData();
+  renderCalendar();
+  updateStats();
+  showDataMsg(`导入成功，恢复 ${Object.keys(entries).length} 天数据`);
 }
