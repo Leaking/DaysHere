@@ -36,16 +36,16 @@
       </div>
     </div>
 
-    <!-- 月份导航 -->
-    <div class="month-nav">
-      <button class="nav-btn" id="prevMonth">&lt;</button>
-      <span class="month-title" id="monthTitle">2026年1月</span>
-      <button class="nav-btn" id="nextMonth">&gt;</button>
-    </div>
-
-    <!-- 当月小统计 -->
-    <div class="month-stats" id="monthStats">
-      <span>本月：自然日 <strong id="monthNatural">0</strong> 天 / 工作日 <strong id="monthWork">0</strong> 天</span>
+    <!-- 月份导航 + 当月统计 -->
+    <div class="month-bar">
+      <div class="month-nav">
+        <button class="nav-btn" id="prevMonth">&lt;</button>
+        <span class="month-title" id="monthTitle">2026年1月</span>
+        <button class="nav-btn" id="nextMonth">&gt;</button>
+      </div>
+      <div class="month-stats" id="monthStats">
+        <span>自然日 <strong id="monthNatural">0</strong> / 工作日 <strong id="monthWork">0</strong></span>
+      </div>
     </div>
 
     <!-- 日历 -->
@@ -66,23 +66,27 @@
         <span class="legend-dot leave"></span><span>请假</span>
       </div>
       <div class="legend-item">
-        <span class="legend-dot bridged"></span><span>假期桥接</span>
+        <span class="legend-dot bridged"></span><span>桥接</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-dot absent"></span><span>不在横琴</span>
       </div>
       <div class="legend-item">
         <span class="legend-dot holiday"></span><span>假期/周末</span>
       </div>
     </div>
 
-    <div class="privacy-note">
-      <span class="privacy-icon">&#x1f512;</span>
-      跨 Google 账号自动同步数据
-    </div>
-
-    <div class="data-actions">
-      <button class="data-btn" id="exportBtn">导出数据</button>
-      <button class="data-btn" id="importBtn">导入数据</button>
-      <input type="file" id="importFile" accept=".json" style="display:none">
+    <!-- 底部 -->
+    <div class="footer">
+      <div class="data-actions">
+        <button class="data-btn" id="exportBtn">导出数据</button>
+        <button class="data-btn" id="importBtn">导入数据</button>
+        <input type="file" id="importFile" accept=".json" style="display:none">
+      </div>
       <div class="data-msg" id="dataMsg"></div>
+      <div class="footer-tips">
+        首次安装？右键日期可标记过去的状态 · 卸载前请先导出备份
+      </div>
     </div>
   </div>
 

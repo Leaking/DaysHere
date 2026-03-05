@@ -170,7 +170,11 @@ function renderCalendar() {
     if (!HolidayUtils.isWorkday(dateStr)) dayEl.classList.add('non-workday');
 
     const status = Calculator.getDayStatus(dateStr, allDayData, bridgedDays);
-    if (status !== 'none') dayEl.classList.add(`status-${status}`);
+    if (status !== 'none') {
+      dayEl.classList.add(`status-${status}`);
+    } else if (dateStr < today) {
+      dayEl.classList.add('status-absent');
+    }
 
     if (HolidayUtils.isHoliday(dateStr)) {
       const badge = document.createElement('span');
