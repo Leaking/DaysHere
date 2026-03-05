@@ -373,6 +373,11 @@ body {
   color: #667eea;
 }
 
+.data-btn.secondary {
+  color: #aaa;
+  border-color: #eee;
+}
+
 .data-msg {
   width: 100%;
   text-align: center;

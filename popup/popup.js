@@ -47,6 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('importBtn').addEventListener('click', () => {
     document.getElementById('importFile').click();
   });
+  document.getElementById('exportLogsBtn').addEventListener('click', exportDebugLogs);
   document.getElementById('importFile').addEventListener('change', (e) => {
     if (e.target.files.length > 0) {
       importData(e.target.files[0]);
@@ -206,9 +207,7 @@ function renderCalendar() {
 
     dayEl.addEventListener('contextmenu', (e) => {
       e.preventDefault();
-      if (!HolidayUtils.isHoliday(dateStr)) {
-        showContextMenu(e, dateStr);
-      }
+      showContextMenu(e, dateStr);
     });
     dayEl.addEventListener('mouseenter', (e) => showTooltip(e, dateStr));
     dayEl.addEventListener('mouseleave', hideTooltip);
@@ -586,4 +585,40 @@ async function importData(file) {
   renderCalendar();
   updateStats();
   showDataMsg(`导入成功，恢复 ${Object.keys(entries).length} 天数据`);
+}
+
+async function exportDebugLogs() {
+  const localResult = await chrome.storage.local.get(null);
+  const logs = { gps: {}, errors: {} };
+
+  for (const [key, value] of Object.entries(localResult)) {
+    if (key.startsWith('loc_')) {
+      logs.gps[key] = value;
+    } else if (key.startsWith('errlog_')) {
+      logs.errors[key] = value;
+    }
+  }
+
+  const gpsCount = Object.keys(logs.gps).length;
+  const errCount = Object.keys(logs.errors).length;
+
+  if (gpsCount === 0 && errCount === 0) {
+    showDataMsg('暂无调试日志', true);
+    return;
+  }
+
+  const exportObj = {
+    exportDate: new Date().toISOString(),
+    summary: { gpsDays: gpsCount, errorDays: errCount },
+    ...logs,
+  };
+
+  const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `hq-debug-${HolidayUtils.formatDate(new Date())}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showDataMsg(`导出 ${gpsCount} 天定位 + ${errCount} 天错误日志`);
 }
