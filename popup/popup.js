@@ -11,6 +11,7 @@ let bridgedDays = new Set();
 let selectedDays = new Set(); // 多选日期
 let isDragging = false;
 let dragStartDate = null;
+let justDragged = false;
 
 // 如果当前不是2026年，默认显示1月
 if (new Date().getFullYear() !== 2026) {
@@ -60,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 松开鼠标结束拖拽
   document.addEventListener('mouseup', () => {
+    if (isDragging) justDragged = true;
     isDragging = false;
     dragStartDate = null;
   });
@@ -67,6 +69,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // Esc 清除选中
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && selectedDays.size > 0) {
+      selectedDays.clear();
+      updateSelectionUI();
+    }
+  });
+
+  // 左键点击任意位置清除选中（排除右键菜单、拖拽释放）
+  document.addEventListener('click', (e) => {
+    if (justDragged) { justDragged = false; return; }
+    if (!e.target.closest('.context-menu') && selectedDays.size > 0) {
       selectedDays.clear();
       updateSelectionUI();
     }
@@ -227,11 +238,6 @@ function renderCalendar() {
       e.preventDefault();
       dragStartDate = dateStr;
       isDragging = false;
-      if (!e.shiftKey) {
-        selectedDays.clear();
-      }
-      selectedDays.add(dateStr);
-      updateSelectionUI();
     });
     dayEl.addEventListener('contextmenu', (e) => {
       e.preventDefault();
