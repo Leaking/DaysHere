@@ -8,6 +8,9 @@ let currentYear = 2026;
 let currentMonth = new Date().getMonth() + 1; // 1-12
 let allDayData = {};   // 合并后的数据，key = "day_YYYY-MM-DD"
 let bridgedDays = new Set();
+let selectedDays = new Set(); // 多选日期
+let isDragging = false;
+let dragStartDate = null;
 
 // 如果当前不是2026年，默认显示1月
 if (new Date().getFullYear() !== 2026) {
@@ -52,6 +55,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target.files.length > 0) {
       importData(e.target.files[0]);
       e.target.value = '';
+    }
+  });
+
+  // 松开鼠标结束拖拽
+  document.addEventListener('mouseup', () => {
+    isDragging = false;
+    dragStartDate = null;
+  });
+
+  // Esc 清除选中
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && selectedDays.size > 0) {
+      selectedDays.clear();
+      updateSelectionUI();
     }
   });
 
@@ -205,17 +222,58 @@ function renderCalendar() {
       dayEl.appendChild(badge);
     }
 
+    dayEl.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      dragStartDate = dateStr;
+      isDragging = false;
+      if (!e.shiftKey) {
+        selectedDays.clear();
+      }
+      selectedDays.add(dateStr);
+      updateSelectionUI();
+    });
     dayEl.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       showContextMenu(e, dateStr);
     });
-    dayEl.addEventListener('mouseenter', (e) => showTooltip(e, dateStr));
+    dayEl.addEventListener('mouseenter', (e) => {
+      if (e.buttons === 1 && dragStartDate !== null) {
+        isDragging = true;
+        selectRange(dragStartDate, dateStr);
+        updateSelectionUI();
+        hideTooltip();
+        return;
+      }
+      showTooltip(e, dateStr);
+    });
     dayEl.addEventListener('mouseleave', hideTooltip);
 
     body.appendChild(dayEl);
   }
 
   updateMonthStats();
+  updateSelectionUI(); // 重渲染后恢复选中状态
+}
+
+// ─── 多选辅助 ───────────────────────────────────────
+
+function updateSelectionUI() {
+  document.querySelectorAll('.calendar-day[data-date]').forEach(el => {
+    el.classList.toggle('selected', selectedDays.has(el.dataset.date));
+  });
+}
+
+function selectRange(startDate, endDate) {
+  const a = new Date(startDate);
+  const b = new Date(endDate);
+  const [minDate, maxDate] = a <= b ? [a, b] : [b, a];
+  selectedDays.clear();
+  const cur = new Date(minDate);
+  while (cur <= maxDate) {
+    selectedDays.add(HolidayUtils.formatDate(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
 }
 
 // ─── 右键菜单 ───────────────────────────────────────
@@ -225,24 +283,34 @@ let contextMenuEl = null;
 function showContextMenu(event, dateStr) {
   hideContextMenu();
 
-  const dayData = allDayData[`day_${dateStr}`];
-  const isLeave = dayData && dayData.isLeave;
-  const isManualHengqin = dayData && dayData.manualHengqin;
+  // 右键点击未选中的格子时，重置为仅选该格
+  if (!selectedDays.has(dateStr)) {
+    selectedDays.clear();
+    selectedDays.add(dateStr);
+    updateSelectionUI();
+  }
+
+  const targetDates = [...selectedDays].sort();
+  const isMulti = targetDates.length > 1;
+
+  // 多选时：全部已标记才显示"取消"，否则显示"标记"
+  const allManualHengqin = targetDates.every(d => allDayData[`day_${d}`]?.manualHengqin);
+  const allLeave = targetDates.every(d => allDayData[`day_${d}`]?.isLeave);
 
   contextMenuEl = document.createElement('div');
   contextMenuEl.className = 'context-menu';
 
   const header = document.createElement('div');
   header.className = 'context-menu-header';
-  header.textContent = dateStr;
+  header.textContent = isMulti ? `已选 ${targetDates.length} 天` : dateStr;
   contextMenuEl.appendChild(header);
 
   const hengqinItem = document.createElement('div');
   hengqinItem.className = 'context-menu-item';
-  hengqinItem.textContent = isManualHengqin ? '取消在横琴标记' : '标记在横琴';
+  hengqinItem.textContent = allManualHengqin ? '取消在横琴标记' : '标记在横琴';
   hengqinItem.addEventListener('click', () => {
     hideContextMenu();
-    applyManualHengqin(dateStr, !isManualHengqin);
+    applyManualHengqinBatch(targetDates, !allManualHengqin);
   });
   contextMenuEl.appendChild(hengqinItem);
 
@@ -252,10 +320,10 @@ function showContextMenu(event, dateStr) {
 
   const leaveItem = document.createElement('div');
   leaveItem.className = 'context-menu-item';
-  leaveItem.textContent = isLeave ? '取消请假' : '标记请假';
+  leaveItem.textContent = allLeave ? '取消请假' : '标记请假';
   leaveItem.addEventListener('click', () => {
     hideContextMenu();
-    applyLeave(dateStr, !isLeave);
+    applyLeaveBatch(targetDates, !allLeave);
   });
   contextMenuEl.appendChild(leaveItem);
 
@@ -299,36 +367,33 @@ function hideContextMenu() {
 
 // ─── 标记操作 ───────────────────────────────────────
 
-async function applyManualHengqin(dateStr, mark) {
-  const key = `day_${dateStr}`;
-  const dayData = allDayData[key] || { inHengqin: false, isLeave: false, manualHengqin: false, locations: null };
-
-  dayData.manualHengqin = mark;
-  if (mark) {
-    dayData.inHengqin = true;
-  } else {
-    // 取消手动标记时，按需加载 GPS 日志判断是否保留
-    const locations = await ensureDayLocations(dateStr);
-    dayData.inHengqin = locations.some(l => l.inHengqin);
+async function applyManualHengqinBatch(dates, mark) {
+  for (const dateStr of dates) {
+    const key = `day_${dateStr}`;
+    const dayData = allDayData[key] || { inHengqin: false, isLeave: false, manualHengqin: false, locations: null };
+    dayData.manualHengqin = mark;
+    if (mark) {
+      dayData.inHengqin = true;
+    } else {
+      const locations = await ensureDayLocations(dateStr);
+      dayData.inHengqin = locations.some(l => l.inHengqin);
+    }
+    allDayData[key] = dayData;
+    await saveDayStatus(dateStr, dayData);
   }
-
-  allDayData[key] = dayData;
-  await saveDayStatus(dateStr, dayData);
-
   bridgedDays = Calculator.calculateBridgedDays(allDayData);
   renderCalendar();
   updateStats();
 }
 
-async function applyLeave(dateStr, isLeave) {
-  const key = `day_${dateStr}`;
-  const dayData = allDayData[key] || { inHengqin: false, isLeave: false, manualHengqin: false, locations: null };
-
-  dayData.isLeave = isLeave;
-  allDayData[key] = dayData;
-
-  await saveDayStatus(dateStr, dayData);
-
+async function applyLeaveBatch(dates, isLeave) {
+  for (const dateStr of dates) {
+    const key = `day_${dateStr}`;
+    const dayData = allDayData[key] || { inHengqin: false, isLeave: false, manualHengqin: false, locations: null };
+    dayData.isLeave = isLeave;
+    allDayData[key] = dayData;
+    await saveDayStatus(dateStr, dayData);
+  }
   bridgedDays = Calculator.calculateBridgedDays(allDayData);
   renderCalendar();
   updateStats();
@@ -474,16 +539,20 @@ function showTooltip(event, dateStr) {
     if (dayData && dayData.manualHengqin) lines.push('✓ 手动标记在横琴');
     else lines.push('✓ 定位确认在横琴');
   } else if (status === 'leave') {
-    lines.push('✓ 请假（算横琴）');
+    lines.push('✓ 请假桥接（算横琴）');
   } else if (status === 'bridged') {
     lines.push('✓ 假期桥接（算横琴）');
+  }
+
+  if (dayData && dayData.isLeave && status !== 'leave') {
+    lines.push('⚠ 请假（前后未在横琴，不计入）');
   }
 
   if (dayData && dayData.locations && dayData.locations.length > 0) {
     lines.push(`定位: ${dayData.locations.length}次`);
   }
 
-  lines.push('右键 → 标记/请假');
+  lines.push('拖拽圈选多天，右键批量操作');
 
   tooltipEl = document.createElement('div');
   tooltipEl.className = 'day-tooltip';

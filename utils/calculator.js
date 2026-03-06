@@ -2,90 +2,64 @@
 // 依赖 holidays.js 中的 HolidayUtils
 
 /**
- * 判断某天是否"在横琴"（直接检测到 或 请假）
+ * 判断某天是否"实际在横琴"（GPS 或手动标记，不含请假）
  */
 function isDayInHengqin(dayData) {
   if (!dayData) return false;
-  return dayData.inHengqin || dayData.isLeave;
+  return dayData.inHengqin;
 }
 
 /**
- * 计算假期桥接天数
- * 规则：如果假期前一天和假期后一天都在横琴，则假期内所有天数都算在横琴
- * 返回需要桥接的日期集合
+ * 计算桥接天数
+ *
+ * 统一桥接规则：将连续的"可桥接空白段"（法定假日、周末休息日、请假日，
+ * 且当天未实际在横琴）视为一个整体，若段前一天和段后一天都"实际在横琴"
+ * （GPS 或手动标记），则整段计入。
+ *
+ * 可桥接判定：!isWorkday（假日/周末）或 isLeave（主动请假的工作日）
+ * 打断条件：普通工作日（未请假）或实际在横琴的天
+ *
+ * 这样可以正确处理：纯假日、纯周末、纯请假、以及请假+假日等混合序列。
  */
 function calculateBridgedDays(allDayData) {
   const bridgedDays = new Set();
-  const periods = HolidayUtils.getHolidayPeriods();
 
-  // 收集所有假期段日期，用于在周末桥接中排除
-  const holidayPeriodDates = new Set();
-  for (const period of periods) {
-    const dates = HolidayUtils.getDateRange(period.start, period.end);
-    for (const d of dates) {
-      holidayPeriodDates.add(d);
-    }
+  const allDates = [];
+  const cur = new Date(2026, 0, 1);
+  while (cur.getFullYear() === 2026) {
+    allDates.push(HolidayUtils.formatDate(cur));
+    cur.setDate(cur.getDate() + 1);
   }
 
-  // 1. 法定假期桥接
-  for (const period of periods) {
-    const dayBefore = HolidayUtils.getPrevDay(period.start);
-    const dayAfter = HolidayUtils.getNextDay(period.end);
+  let gapBlock = []; // 当前连续的可桥接空白段
 
-    const beforeData = allDayData[`day_${dayBefore}`];
-    const afterData = allDayData[`day_${dayAfter}`];
+  const flushGap = () => {
+    if (gapBlock.length === 0) return;
+    const dayBefore = HolidayUtils.getPrevDay(gapBlock[0]);
+    const dayAfter = HolidayUtils.getNextDay(gapBlock[gapBlock.length - 1]);
+    if (isDayInHengqin(allDayData[`day_${dayBefore}`]) &&
+        isDayInHengqin(allDayData[`day_${dayAfter}`])) {
+      for (const d of gapBlock) bridgedDays.add(d);
+    }
+    gapBlock = [];
+  };
 
-    if (isDayInHengqin(beforeData) && isDayInHengqin(afterData)) {
-      const datesInPeriod = HolidayUtils.getDateRange(period.start, period.end);
-      for (const dateStr of datesInPeriod) {
-        const dayData = allDayData[`day_${dateStr}`];
-        if (!isDayInHengqin(dayData)) {
-          bridgedDays.add(dateStr);
-        }
+  for (const dateStr of allDates) {
+    const dayData = allDayData[`day_${dateStr}`];
+    if (isDayInHengqin(dayData)) {
+      // 实际在横琴 → 结算当前空白段（此天本身已在横琴，不进 gap）
+      flushGap();
+    } else {
+      const isBridgeable = !HolidayUtils.isWorkday(dateStr) || !!(dayData && dayData.isLeave);
+      if (isBridgeable) {
+        gapBlock.push(dateStr);
+      } else {
+        // 普通工作日（未请假）→ 打断空白段
+        flushGap();
       }
     }
   }
-
-  // 2. 普通周末桥接：前后都在横琴 → 桥接中间的周末休息日
-  const current = new Date(2026, 0, 1);
-  while (current.getDay() !== 6) {
-    current.setDate(current.getDate() + 1);
-  }
-
-  while (current.getFullYear() === 2026) {
-    const satStr = HolidayUtils.formatDate(current);
-    const sunDate = new Date(current);
-    sunDate.setDate(sunDate.getDate() + 1);
-    const sunStr = HolidayUtils.formatDate(sunDate);
-
-    // 收集本周末中属于"普通休息日"的天（排除调休上班日和假期段内的日期）
-    const restDays = [];
-    if (!HolidayUtils.isWorkday(satStr) && !holidayPeriodDates.has(satStr)) {
-      restDays.push(satStr);
-    }
-    if (sunDate.getFullYear() === 2026 && !HolidayUtils.isWorkday(sunStr) && !holidayPeriodDates.has(sunStr)) {
-      restDays.push(sunStr);
-    }
-
-    if (restDays.length > 0) {
-      const dayBefore = HolidayUtils.getPrevDay(restDays[0]);
-      const dayAfter = HolidayUtils.getNextDay(restDays[restDays.length - 1]);
-
-      const beforeData = allDayData[`day_${dayBefore}`];
-      const afterData = allDayData[`day_${dayAfter}`];
-
-      if (isDayInHengqin(beforeData) && isDayInHengqin(afterData)) {
-        for (const dateStr of restDays) {
-          const dayData = allDayData[`day_${dateStr}`];
-          if (!isDayInHengqin(dayData)) {
-            bridgedDays.add(dateStr);
-          }
-        }
-      }
-    }
-
-    current.setDate(current.getDate() + 7);
-  }
+  flushGap();
 
   return bridgedDays;
 }
@@ -97,9 +71,11 @@ function calculateBridgedDays(allDayData) {
 function getDayStatus(dateStr, allDayData, bridgedDays) {
   const dayData = allDayData[`day_${dateStr}`];
 
-  if (dayData && dayData.isLeave) return 'leave';
   if (dayData && dayData.inHengqin) return 'hengqin';
-  if (bridgedDays.has(dateStr)) return 'bridged';
+  if (bridgedDays.has(dateStr)) {
+    // 请假桥接保持蓝色（leave），普通假期/周末桥接显示黄色（bridged）
+    return (dayData && dayData.isLeave) ? 'leave' : 'bridged';
+  }
   return 'none';
 }
 
