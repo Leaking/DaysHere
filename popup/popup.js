@@ -52,6 +52,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('importFile').click();
   });
   document.getElementById('exportLogsBtn').addEventListener('click', exportDebugLogs);
+  document.getElementById('infoLink').addEventListener('click', () => {
+    document.getElementById('infoPanel').classList.toggle('show');
+  });
   document.getElementById('importFile').addEventListener('change', (e) => {
     if (e.target.files.length > 0) {
       importData(e.target.files[0]);
@@ -552,12 +555,6 @@ function showTooltip(event, dateStr) {
   if (dayData && dayData.isLeave && status === 'none') {
     lines.push('⚠ 请假（前后未在横琴，不计入）');
   }
-
-  if (dayData && dayData.locations && dayData.locations.length > 0) {
-    lines.push(`定位: ${dayData.locations.length}次`);
-  }
-
-  lines.push('拖拽圈选多天，右键批量操作');
 
   tooltipEl = document.createElement('div');
   tooltipEl.className = 'day-tooltip';

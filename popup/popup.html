@@ -87,6 +87,18 @@
       <div class="data-msg" id="dataMsg"></div>
       <div class="footer-tips">
         首次安装？右键日期可标记过去的状态 · 卸载前请先导出备份
+        <br><a class="info-link" id="infoLink">统计规则</a>
+      </div>
+    </div>
+
+    <!-- 统计规则面板 -->
+    <div class="info-panel" id="infoPanel">
+      <div class="info-title">统计规则说明</div>
+      <div class="info-content">
+        <p><b>自然日</b>：工作日在横琴（GPS/手动标记/请假桥接）计入；非工作日仅通过假期桥接计入。请假按法定节假日处理。</p>
+        <p><b>工作日</b>：自然日集合 ∩ 工作日集合（周一至五非假日 + 调休上班日）。</p>
+        <p><b>假期桥接</b>：法定节假日段前一天和后一天都在横琴，则假期段内所有天自动桥接计入。</p>
+        <p><b>目标</b>：全年 183 自然日、124 工作日。</p>
       </div>
     </div>
   </div>
