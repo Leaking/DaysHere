@@ -70,11 +70,17 @@ function calculateBridgedDays(allDayData) {
  */
 function getDayStatus(dateStr, allDayData, bridgedDays) {
   const dayData = allDayData[`day_${dateStr}`];
+  const isWorkday = HolidayUtils.isWorkday(dateStr);
 
-  if (dayData && dayData.inHengqin) return 'hengqin';
-  if (bridgedDays.has(dateStr)) {
-    // 请假桥接保持蓝色（leave），普通假期/周末桥接显示黄色（bridged）
-    return (dayData && dayData.isLeave) ? 'leave' : 'bridged';
+  if (isWorkday) {
+    // 工作日：GPS/手动 → 绿色；请假桥接 → 蓝色；普通桥接 → 黄色
+    if (dayData && dayData.inHengqin) return 'hengqin';
+    if (bridgedDays.has(dateStr)) {
+      return 'bridged';
+    }
+  } else {
+    // 非工作日（周末/假日）：只有桥接才计入，GPS/isLeave 不计入
+    if (bridgedDays.has(dateStr)) return 'bridged';
   }
   return 'none';
 }

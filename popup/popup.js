@@ -544,13 +544,12 @@ function showTooltip(event, dateStr) {
   if (status === 'hengqin') {
     if (dayData && dayData.manualHengqin) lines.push('✓ 手动标记在横琴');
     else lines.push('✓ 定位确认在横琴');
-  } else if (status === 'leave') {
-    lines.push('✓ 请假桥接（算横琴）');
   } else if (status === 'bridged') {
-    lines.push('✓ 假期桥接（算横琴）');
+    if (dayData && dayData.isLeave) lines.push('✓ 请假桥接（算横琴）');
+    else lines.push('✓ 假期桥接（算横琴）');
   }
 
-  if (dayData && dayData.isLeave && status !== 'leave') {
+  if (dayData && dayData.isLeave && status === 'none') {
     lines.push('⚠ 请假（前后未在横琴，不计入）');
   }
 
