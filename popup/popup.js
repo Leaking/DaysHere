@@ -414,6 +414,50 @@ function updateStats() {
   const stats = Calculator.calculateYearStats(allDayData);
   document.getElementById('naturalDays').textContent = stats.naturalDays;
   document.getElementById('workDays').textContent = stats.workdays;
+  updatePace(stats);
+}
+
+function updatePace(stats) {
+  const now = new Date();
+  let dayOfYear;
+  if (now.getFullYear() === 2026) {
+    dayOfYear = Math.floor((now - new Date(2026, 0, 1)) / 86400000) + 1;
+  } else {
+    dayOfYear = now.getFullYear() > 2026 ? 365 : 0;
+  }
+  const timePct = dayOfYear / 365;
+
+  let elapsedWorkdays = 0;
+  const cur = new Date(2026, 0, 1);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  while (cur <= today && cur.getFullYear() === 2026) {
+    if (HolidayUtils.isWorkday(HolidayUtils.formatDate(cur))) elapsedWorkdays++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  let totalWorkdaysInYear = 0;
+  const wd = new Date(2026, 0, 1);
+  while (wd.getFullYear() === 2026) {
+    if (HolidayUtils.isWorkday(HolidayUtils.formatDate(wd))) totalWorkdaysInYear++;
+    wd.setDate(wd.getDate() + 1);
+  }
+
+  const expectedNatural = Math.round(timePct * 183);
+  const expectedWork = Math.round(elapsedWorkdays / totalWorkdaysInYear * 124);
+  const nDiff = stats.naturalDays - expectedNatural;
+  const wDiff = stats.workdays - expectedWork;
+
+  setPace('naturalPace', nDiff);
+  setPace('workPace', wDiff);
+}
+
+function setPace(id, diff) {
+  const el = document.getElementById(id);
+  let cls, text;
+  if (diff >= 1) { cls = 'ahead'; text = `超前${diff}天`; }
+  else if (diff <= -1) { cls = 'behind'; text = `落后${Math.abs(diff)}天`; }
+  else { cls = 'on-track'; text = '持平'; }
+  el.textContent = text;
+  el.className = 'stat-pace ' + cls;
 }
 
 function updateMonthStats() {

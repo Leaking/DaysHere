@@ -110,6 +110,17 @@ body {
   margin: 0 20px;
 }
 
+/* 进度文字 */
+.stat-pace {
+  font-size: 10px;
+  opacity: 0.9;
+  margin-top: 2px;
+}
+
+.stat-pace.ahead { color: #a5d6a7; }
+.stat-pace.behind { color: #ef9a9a; }
+.stat-pace.on-track { color: rgba(255,255,255,0.7); }
+
 /* 月份导航 + 当月统计合并一行 */
 .month-bar {
   display: flex;
