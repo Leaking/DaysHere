@@ -79,7 +79,8 @@ function getDayStatus(dateStr, allDayData, bridgedDays) {
       return 'bridged';
     }
   } else {
-    // 非工作日（周末/假日）：只有桥接才计入，GPS/isLeave 不计入
+    // 非工作日（周末/假日）：手动标记在横琴计入，桥接计入，GPS 自动检测不计入
+    if (dayData && dayData.manualHengqin) return 'hengqin';
     if (bridgedDays.has(dateStr)) return 'bridged';
   }
   return 'none';
