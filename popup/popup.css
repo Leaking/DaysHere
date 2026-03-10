@@ -115,6 +115,7 @@ body {
   font-size: 10px;
   opacity: 0.9;
   margin-top: 2px;
+  cursor: help;
 }
 
 .stat-pace.ahead { color: #a5d6a7; }

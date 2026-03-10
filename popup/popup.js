@@ -446,11 +446,13 @@ function updatePace(stats) {
   const nDiff = stats.naturalDays - expectedNatural;
   const wDiff = stats.workdays - expectedWork;
 
-  setPace('naturalPace', nDiff);
-  setPace('workPace', wDiff);
+  setPace('naturalPace', nDiff,
+    `今年已过 ${Math.round(timePct * 100)}%（${dayOfYear}/365天）<br>按进度应达 ${expectedNatural} 天，实际 ${stats.naturalDays} 天`);
+  setPace('workPace', wDiff,
+    `已过工作日 ${elapsedWorkdays}/${totalWorkdaysInYear} 天<br>按进度应达 ${expectedWork} 天，实际 ${stats.workdays} 天`);
 }
 
-function setPace(id, diff) {
+function setPace(id, diff, tooltip) {
   const el = document.getElementById(id);
   let cls, text;
   if (diff >= 1) { cls = 'ahead'; text = `超前${diff}天`; }
@@ -458,7 +460,30 @@ function setPace(id, diff) {
   else { cls = 'on-track'; text = '持平'; }
   el.textContent = text;
   el.className = 'stat-pace ' + cls;
+  el.dataset.tooltip = tooltip;
 }
+
+// 进度指标悬浮提示
+document.addEventListener('mouseover', (e) => {
+  const pace = e.target.closest('.stat-pace');
+  if (!pace || !pace.dataset.tooltip) return;
+  hideTooltip();
+  tooltipEl = document.createElement('div');
+  tooltipEl.className = 'day-tooltip';
+  tooltipEl.innerHTML = pace.dataset.tooltip;
+  document.body.appendChild(tooltipEl);
+  const rect = pace.getBoundingClientRect();
+  tooltipEl.style.left = `${rect.left}px`;
+  tooltipEl.style.top = `${rect.bottom + 4}px`;
+  const tipRect = tooltipEl.getBoundingClientRect();
+  if (tipRect.right > document.body.clientWidth) {
+    tooltipEl.style.left = `${document.body.clientWidth - tipRect.width - 4}px`;
+  }
+});
+
+document.addEventListener('mouseout', (e) => {
+  if (e.target.closest('.stat-pace')) hideTooltip();
+});
 
 function updateMonthStats() {
   const monthStats = Calculator.calculateMonthStats(currentYear, currentMonth, allDayData, bridgedDays);
