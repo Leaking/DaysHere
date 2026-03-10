@@ -251,8 +251,9 @@ body {
   background: #fff0f0;
 }
 
-/* 在横琴 */
-.calendar-day.status-hengqin {
+/* 在横琴（含非工作日手动标记） */
+.calendar-day.status-hengqin,
+.calendar-day.non-workday.status-hengqin {
   background: #c8e6c9;
   color: #2e7d32;
   font-weight: 600;
