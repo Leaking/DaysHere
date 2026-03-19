@@ -416,16 +416,26 @@ body {
   color: #f44336;
 }
 
-.footer-tips {
+.footer-notes {
   margin-top: 6px;
   font-size: 9px;
   color: #c0c0c0;
-  line-height: 1.5;
+  line-height: 1.6;
+  text-align: left;
+}
+
+.footer-notes p {
+  margin: 0;
+}
+
+.footer-link {
+  margin-top: 4px;
   text-align: center;
 }
 
 /* 统计规则链接 */
 .info-link {
+  font-size: 9px;
   color: #667eea;
   cursor: pointer;
   text-decoration: none;
@@ -433,10 +443,6 @@ body {
 
 .info-link:hover {
   text-decoration: underline;
-}
-
-.disclaimer {
-  color: #d0d0d0;
 }
 
 /* 统计规则面板 */
