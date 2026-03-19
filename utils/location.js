@@ -34,4 +34,11 @@ function isInHengqin(lat, lng) {
   return distance <= HENGQIN_RADIUS_KM;
 }
 
-self.LocationUtils = { haversineDistance, isInHengqin, HENGQIN_CENTER, HENGQIN_RADIUS_KM };
+/**
+ * 计算给定坐标到横琴中心的距离（公里）
+ */
+function distanceToHengqin(lat, lng) {
+  return haversineDistance(lat, lng, HENGQIN_CENTER.lat, HENGQIN_CENTER.lng);
+}
+
+self.LocationUtils = { haversineDistance, isInHengqin, distanceToHengqin, HENGQIN_CENTER, HENGQIN_RADIUS_KM };

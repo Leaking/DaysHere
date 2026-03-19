@@ -39,6 +39,7 @@ body {
   gap: 4px;
   font-size: 11px;
   color: #888;
+  cursor: help;
 }
 
 .status-dot {
@@ -434,6 +435,10 @@ body {
   text-decoration: underline;
 }
 
+.disclaimer {
+  color: #d0d0d0;
+}
+
 /* 统计规则面板 */
 .info-panel {
   display: none;
@@ -522,4 +527,10 @@ body {
   z-index: 100;
   white-space: nowrap;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.day-tooltip.geo-tooltip {
+  white-space: normal;
+  max-width: 320px;
+  line-height: 1.5;
 }

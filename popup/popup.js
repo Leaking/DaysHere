@@ -21,6 +21,7 @@ if (new Date().getFullYear() !== 2026) {
 document.addEventListener('DOMContentLoaded', () => {
   // 先渲染空日历，让 popup 秒开
   renderCalendar();
+  initGeoTooltip();
 
   // 异步加载 sync 数据（轻量）后刷新
   loadAllData().then(() => {
@@ -505,14 +506,67 @@ function popupGeoPromise(highAccuracy, timeout) {
 
 /**
  * 尝试一轮定位：高精度(10s) → 低精度(30s)
+ * 返回 { position, steps } 其中 steps 记录每步结果
  */
 async function tryGetPosition() {
+  const steps = [];
   try {
-    return await popupGeoPromise(true, 10000);
-  } catch (_highErr) {
-    // 高精度失败，降级到低精度
+    const pos = await popupGeoPromise(true, 10000);
+    steps.push({ method: '高精度 (WiFi/GPS)', timeout: '10s', success: true, accuracy: pos.coords.accuracy });
+    return { position: pos, steps };
+  } catch (highErr) {
+    steps.push({ method: '高精度 (WiFi/GPS)', timeout: '10s', success: false, error: geoErrorMsg(highErr) });
   }
-  return await popupGeoPromise(false, 30000);
+  try {
+    const pos = await popupGeoPromise(false, 30000);
+    steps.push({ method: '低精度 (IP 定位)', timeout: '30s', success: true, accuracy: pos.coords.accuracy });
+    return { position: pos, steps };
+  } catch (lowErr) {
+    steps.push({ method: '低精度 (IP 定位)', timeout: '30s', success: false, error: geoErrorMsg(lowErr) });
+    const err = lowErr;
+    err._geoSteps = steps;
+    throw err;
+  }
+}
+
+function geoErrorMsg(err) {
+  if (err.code === 1) return '权限被拒绝';
+  if (err.code === 2) return '位置不可用';
+  if (err.code === 3) return '超时';
+  return err.message || '未知错误';
+}
+
+// 定位策略 tooltip 相关
+let geoTooltipText = '';
+let geoTooltipEl = null;
+
+function initGeoTooltip() {
+  const locationStatus = document.getElementById('locationStatus');
+  locationStatus.addEventListener('mouseenter', (e) => {
+    if (!geoTooltipText) return;
+    hideGeoTooltip();
+    geoTooltipEl = document.createElement('div');
+    geoTooltipEl.className = 'day-tooltip geo-tooltip';
+    geoTooltipEl.innerHTML = geoTooltipText.split('\n').map(escapeHtml).join('<br>');
+    document.body.appendChild(geoTooltipEl);
+
+    const rect = locationStatus.getBoundingClientRect();
+    geoTooltipEl.style.left = 'auto';
+    geoTooltipEl.style.right = '8px';
+    geoTooltipEl.style.top = `${rect.bottom + 4}px`;
+  });
+  locationStatus.addEventListener('mouseleave', hideGeoTooltip);
+}
+
+function hideGeoTooltip() {
+  if (geoTooltipEl) {
+    geoTooltipEl.remove();
+    geoTooltipEl = null;
+  }
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 async function checkLocationNow() {
@@ -521,29 +575,45 @@ async function checkLocationNow() {
 
   statusDot.className = 'status-dot';
   statusText.textContent = '定位中...';
+  geoTooltipText = '';
 
   if (!navigator.geolocation) {
     statusDot.className = 'status-dot error';
     statusText.textContent = '浏览器不支持定位';
+    geoTooltipText = '当前浏览器不支持 Geolocation API';
     return;
   }
 
   let position;
+  let allSteps = [];
+  let retried = false;
   try {
-    position = await tryGetPosition();
+    const result = await tryGetPosition();
+    position = result.position;
+    allSteps = result.steps;
   } catch (firstErr) {
+    allSteps = firstErr._geoSteps || [];
+    retried = true;
     // 首次失败，等 3s 重试一次
     statusText.textContent = '重试定位中...';
     await new Promise((r) => setTimeout(r, 3000));
     try {
-      position = await tryGetPosition();
+      const result = await tryGetPosition();
+      position = result.position;
+      allSteps = allSteps.concat([{ method: '— 等待 3s 后重试 —', separator: true }], result.steps);
     } catch (retryErr) {
+      allSteps = allSteps.concat(
+        [{ method: '— 等待 3s 后重试 —', separator: true }],
+        retryErr._geoSteps || []
+      );
       statusDot.className = 'status-dot error';
       if (retryErr.code === 1) statusText.textContent = '请允许定位权限';
       else if (retryErr.code === 2) statusText.textContent = '无法获取位置';
       else if (retryErr.code === 3) statusText.textContent = '定位超时';
       else statusText.textContent = '定位异常';
       console.error('定位失败（重试后）:', retryErr);
+
+      geoTooltipText = buildGeoTooltip(allSteps, null);
 
       // 写错误日志到 storage
       chrome.runtime.sendMessage({
@@ -558,6 +628,7 @@ async function checkLocationNow() {
 
   const lat = position.coords.latitude;
   const lng = position.coords.longitude;
+  const accuracy = position.coords.accuracy;
   const inHengqin = LocationUtils.isInHengqin(lat, lng);
   const today = HolidayUtils.formatDate(new Date());
   const locationRecord = { lat, lng, time: position.timestamp || Date.now(), inHengqin };
@@ -581,6 +652,8 @@ async function checkLocationNow() {
     statusText.textContent = '当前不在横琴';
   }
 
+  geoTooltipText = buildGeoTooltip(allSteps, { lat, lng, accuracy, inHengqin });
+
   // 立即重算桥接 + 渲染
   bridgedDays = Calculator.calculateBridgedDays(allDayData);
   renderCalendar();
@@ -592,6 +665,35 @@ async function checkLocationNow() {
     dateStr: today,
     location: locationRecord,
   });
+}
+
+function buildGeoTooltip(steps, result) {
+  const lines = ['定位策略详情：'];
+  let stepNum = 0;
+  steps.forEach((s) => {
+    if (s.separator) {
+      lines.push(s.method);
+      return;
+    }
+    stepNum++;
+    if (s.success) {
+      lines.push(`${stepNum}. ${s.method} (${s.timeout}) → 成功，精度 ${Math.round(s.accuracy)}m`);
+    } else {
+      lines.push(`${stepNum}. ${s.method} (${s.timeout}) → 失败：${s.error}`);
+    }
+  });
+  if (result) {
+    lines.push('');
+    lines.push(`坐标：${result.lat.toFixed(4)}, ${result.lng.toFixed(4)}`);
+    lines.push(`精度：${Math.round(result.accuracy)}m`);
+    const dist = LocationUtils.distanceToHengqin
+      ? LocationUtils.distanceToHengqin(result.lat, result.lng)
+      : null;
+    if (dist !== null) {
+      lines.push(`距横琴中心：${dist.toFixed(1)} km`);
+    }
+  }
+  return lines.join('\n');
 }
 
 // ─── Tooltip ────────────────────────────────────────
