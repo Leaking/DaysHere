@@ -4,6 +4,10 @@
   box-sizing: border-box;
 }
 
+html, body {
+  overflow: hidden;
+}
+
 body {
   width: 340px;
   height: min-content;
@@ -12,11 +16,10 @@ body {
   font-size: 12px;
   color: #333;
   background: #fff;
-  overflow: hidden;
 }
 
 .container {
-  padding: 12px;
+  padding: 10px;
 }
 
 /* 标题栏 */
@@ -24,7 +27,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .header h1 {
@@ -69,8 +72,8 @@ body {
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-radius: 8px;
-  padding: 10px 16px;
-  margin-bottom: 10px;
+  padding: 6px 14px;
+  margin-bottom: 6px;
   color: #fff;
 }
 
@@ -93,7 +96,7 @@ body {
 }
 
 .stat-value {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
   line-height: 1;
 }
@@ -106,9 +109,9 @@ body {
 
 .stat-divider {
   width: 1px;
-  height: 28px;
+  height: 24px;
   background: rgba(255, 255, 255, 0.3);
-  margin: 0 20px;
+  margin: 0 18px;
 }
 
 /* 进度文字 */
@@ -174,7 +177,7 @@ body {
 
 /* 日历 */
 .calendar {
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .calendar-header {
@@ -324,7 +327,7 @@ body {
   justify-content: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .legend-item {
@@ -366,8 +369,8 @@ body {
 /* 底部区域 */
 .footer {
   border-top: 1px solid #f0f0f0;
-  padding-top: 8px;
-  margin-top: 2px;
+  padding-top: 6px;
+  margin-top: 0;
 }
 
 .data-actions {
@@ -417,10 +420,10 @@ body {
 }
 
 .footer-notes {
-  margin-top: 6px;
+  margin-top: 4px;
   font-size: 9px;
   color: #c0c0c0;
-  line-height: 1.6;
+  line-height: 1.5;
   text-align: left;
 }
 
@@ -429,7 +432,7 @@ body {
 }
 
 .footer-link {
-  margin-top: 4px;
+  margin-top: 2px;
   text-align: center;
 }
 
