@@ -10,16 +10,26 @@ function isDayInHengqin(dayData) {
 }
 
 /**
+ * 判断某天是否为桥接锚点
+ * 只有工作日且在横琴（GPS 或手动）才能作为桥接两端的锚点
+ */
+function isBridgeAnchor(dateStr, dayData) {
+  if (!dayData) return false;
+  return HolidayUtils.isWorkday(dateStr) && dayData.inHengqin;
+}
+
+/**
  * 计算桥接天数
  *
- * 统一桥接规则：将连续的"可桥接空白段"（法定假日、周末休息日、请假日，
- * 且当天未实际在横琴）视为一个整体，若段前一天和段后一天都"实际在横琴"
- * （GPS 或手动标记），则整段计入。
+ * 统一桥接规则：将连续的"可桥接空白段"视为一个整体，若段前一天和段后一天
+ * 都是桥接锚点，则整段计入。
  *
- * 可桥接判定：!isWorkday（假日/周末）或 isLeave（主动请假的工作日）
- * 打断条件：普通工作日（未请假）或实际在横琴的天
+ * 锚点：工作日 GPS/手动在横琴，或非工作日手动标记在横琴
+ * 可桥接：非工作日（含仅 GPS 检测到的天）或请假工作日
+ * 打断：普通工作日（未请假、未在横琴）
  *
- * 这样可以正确处理：纯假日、纯周末、纯请假、以及请假+假日等混合序列。
+ * 非工作日仅 GPS 检测到在横琴的天也进入空白段，桥接成功则计入自然日，
+ * 桥接不成立则不计入（与之前行为一致）。
  */
 function calculateBridgedDays(allDayData) {
   const bridgedDays = new Set();
@@ -37,8 +47,8 @@ function calculateBridgedDays(allDayData) {
     if (gapBlock.length === 0) return;
     const dayBefore = HolidayUtils.getPrevDay(gapBlock[0]);
     const dayAfter = HolidayUtils.getNextDay(gapBlock[gapBlock.length - 1]);
-    if (isDayInHengqin(allDayData[`day_${dayBefore}`]) &&
-        isDayInHengqin(allDayData[`day_${dayAfter}`])) {
+    if (isBridgeAnchor(dayBefore, allDayData[`day_${dayBefore}`]) &&
+        isBridgeAnchor(dayAfter, allDayData[`day_${dayAfter}`])) {
       for (const d of gapBlock) bridgedDays.add(d);
     }
     gapBlock = [];
@@ -46,8 +56,8 @@ function calculateBridgedDays(allDayData) {
 
   for (const dateStr of allDates) {
     const dayData = allDayData[`day_${dateStr}`];
-    if (isDayInHengqin(dayData)) {
-      // 实际在横琴 → 结算当前空白段（此天本身已在横琴，不进 gap）
+    if (isBridgeAnchor(dateStr, dayData)) {
+      // 锚点 → 结算当前空白段
       flushGap();
     } else {
       const isBridgeable = !HolidayUtils.isWorkday(dateStr) || !!(dayData && dayData.isLeave);
@@ -153,6 +163,6 @@ function calculateMonthStats(year, month, allDayData, bridgedDays) {
 }
 
 self.Calculator = {
-  isDayInHengqin, calculateBridgedDays, getDayStatus,
+  isDayInHengqin, isBridgeAnchor, calculateBridgedDays, getDayStatus,
   calculateYearStats, calculateMonthStats,
 };

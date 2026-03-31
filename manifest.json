@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "横琴天数小工具",
-  "version": "2.13.0",
+  "version": "2.14.0",
   "description": "统计在横琴驻留的天数",
   "permissions": [
     "geolocation",
