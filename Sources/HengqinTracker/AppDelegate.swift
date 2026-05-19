@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import HengqinCore
 import SwiftUI
 
@@ -9,11 +10,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
     private var settingsWindow: NSWindow?
+    private var viewModeObserver: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         installStatusItem()
         installPopover()
+        observeViewMode()
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
             self?.showTopRightPopover()
@@ -43,23 +46,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     private func installPopover() {
+        let initialSize = MenuBarPanelView.popoverSize(for: store.viewMode)
         let popover = NSPopover()
         popover.behavior = .transient
         popover.animates = true
-        popover.contentSize = Self.popoverSize
+        popover.contentSize = initialSize
         popover.delegate = self
         let controller = NSHostingController(
             rootView: MenuBarPanelView(store: store, openSettings: { [weak self] in
                 self?.showSettings()
             })
-            .frame(width: Self.panelWidth, height: Self.panelHeight)
         )
         if #available(macOS 13.0, *) {
             controller.sizingOptions = []
         }
-        controller.preferredContentSize = Self.popoverSize
+        controller.preferredContentSize = initialSize
         popover.contentViewController = controller
         self.popover = popover
+    }
+
+    /// Watch the active view mode and resize the popover whenever it flips.
+    /// NSPopover.animates = true makes the contentSize change animate
+    /// automatically; pairing it with `.animation` on the SwiftUI side keeps
+    /// the inner layout and the window frame moving together.
+    private func observeViewMode() {
+        viewModeObserver = store.$viewMode
+            .removeDuplicates()
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] mode in
+                self?.animatePopoverResize(to: mode)
+            }
+    }
+
+    private func animatePopoverResize(to mode: HeatmapViewMode) {
+        guard let popover else { return }
+        let newSize = MenuBarPanelView.popoverSize(for: mode)
+        popover.contentSize = newSize
+        popover.contentViewController?.preferredContentSize = newSize
     }
 
     @objc private func togglePopover(_ sender: Any?) {
@@ -74,6 +98,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         guard let button = statusItem?.button, let popover else { return }
         NSApp.activate(ignoringOtherApps: true)
         button.highlight(true)
+        // Refresh size in case viewMode changed while the popover was closed.
+        let currentSize = MenuBarPanelView.popoverSize(for: store.viewMode)
+        popover.contentSize = currentSize
+        popover.contentViewController?.preferredContentSize = currentSize
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     }
 
@@ -108,8 +136,4 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
     }
-
-    private static let panelWidth: CGFloat = 640
-    private static let panelHeight: CGFloat = 386
-    private static let popoverSize = NSSize(width: panelWidth, height: panelHeight)
 }

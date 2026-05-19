@@ -15,6 +15,8 @@ struct MonthHeatmapView: View {
 
     private let calculator = ResidencyCalculator(calendar: HolidayCalendar2026())
     private let holidayCalendar = HolidayCalendar2026()
+
+    @State private var hoveredDate: DateKey?
     private var layout: MonthHeatmapLayout {
         MonthHeatmapLayout(year: 2026, month: month, weekStart: .monday)
     }
@@ -122,9 +124,16 @@ struct MonthHeatmapView: View {
         let isFilled = !isFuture && kind != .absent
         let isHoliday = holidayCalendar.isHoliday(date)
         let isWorkdayOverride = holidayCalendar.workdayOverrides.contains(date)
+        let isHovered = hoveredDate == date
 
         let dayNumberColor: Color = isFilled ? HeatmapPalette.textColor(for: kind) : Color.primary.opacity(0.85)
         let badgeColor: Color = isFilled ? HeatmapPalette.subtleForeground(for: kind) : .secondary
+        let tooltip = DayTooltipFormatter.text(
+            for: date,
+            kind: kind,
+            record: records[date],
+            calendar: holidayCalendar
+        )
 
         return Button {
             onSelect?(date)
@@ -151,10 +160,23 @@ struct MonthHeatmapView: View {
                     .padding(.horizontal, 5)
                 )
                 .overlay(cellOutline(isToday: isToday, isSelected: date == selectedDate))
+                .overlay(hoverOverlay(visible: isHovered))
+                .animation(.easeOut(duration: 0.12), value: isHovered)
         }
         .buttonStyle(.plain)
         .contextMenu { contextMenu(for: date) }
-        .help("\(date.rawValue) · \(HeatmapPalette.label(for: kind))")
+        .onHover { hovering in
+            hoveredDate = hovering ? date : (hoveredDate == date ? nil : hoveredDate)
+        }
+        .help(tooltip)
+    }
+
+    @ViewBuilder
+    private func hoverOverlay(visible: Bool) -> some View {
+        if visible {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .stroke(theme.accent.opacity(0.85), lineWidth: 1.2)
+        }
     }
 
     @ViewBuilder

@@ -41,8 +41,6 @@ struct MenuBarPanelView: View {
                     heatmapBody
                         .frame(maxWidth: .infinity, alignment: .topLeading)
 
-                    Spacer(minLength: 0)
-
                     PanelFooter(
                         theme: store.theme,
                         selectedDate: selectedDate,
@@ -56,17 +54,32 @@ struct MenuBarPanelView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
                 .padding(.bottom, 12)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                // No liquidPanel + no inner padding(8): the popover's own chrome
-                // is the only outer border; the inner content uses the unified
-                // theme tint directly without a second material layer that would
-                // look like a "frame within a frame".
+                .frame(maxWidth: .infinity, alignment: .top)
+                // No fixed maxHeight — VStack's intrinsic height drives the
+                // popover. AppDelegate observes store.viewMode and animates
+                // popover.contentSize so the window itself resizes smoothly.
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+        .animation(.spring(response: 0.32, dampingFraction: 0.82), value: store.viewMode)
     }
 
-    private static let heatmapBodyHeight: CGFloat = 150
+    /// Heatmap height per view mode. AppDelegate must use
+    /// `popoverSize(for:)` to keep the popover frame in sync.
+    static let yearHeatmapHeight: CGFloat = 100
+    static let monthHeatmapHeight: CGFloat = 150
+
+    /// Sum of every fixed-height row above + below the heatmap (header,
+    /// stats, toggle divider, footer, vertical padding). Used by
+    /// `popoverSize(for:)` to compute the total popover height.
+    private static let chromeHeight: CGFloat = 222
+
+    /// Total popover height for a given view mode. AppDelegate calls this
+    /// and animates `popover.contentSize` whenever `store.viewMode` flips.
+    static func popoverSize(for viewMode: HeatmapViewMode, width: CGFloat = 640) -> NSSize {
+        let bodyHeight = viewMode == .year ? yearHeatmapHeight : monthHeatmapHeight
+        return NSSize(width: width, height: chromeHeight + bodyHeight)
+    }
 
     @ViewBuilder
     private var heatmapBody: some View {
@@ -81,7 +94,7 @@ struct MenuBarPanelView: View {
                 onAction: { date, action in store.apply(action, to: date) },
                 scrollable: !forRendering
             )
-            .frame(height: Self.heatmapBodyHeight, alignment: .topLeading)
+            .frame(height: Self.yearHeatmapHeight, alignment: .topLeading)
         } else {
             MonthHeatmapView(
                 records: store.records,
@@ -95,7 +108,7 @@ struct MenuBarPanelView: View {
                 onPreviousMonth: { store.showPreviousMonth() },
                 onNextMonth: { store.showNextMonth() }
             )
-            .frame(height: Self.heatmapBodyHeight, alignment: .topLeading)
+            .frame(height: Self.monthHeatmapHeight, alignment: .topLeading)
         }
     }
 }
@@ -190,9 +203,13 @@ private struct ThemeSwatch: View {
                         .stroke(Color.white.opacity(0.6), lineWidth: 0.5)
                 )
             if active {
+                // Echo the theme's own accent color in the selection ring
+                // so the border feels tied to the swatch's inner gradient
+                // (instead of a flat primary stroke that fights the color).
                 Circle()
-                    .stroke(Color.primary.opacity(0.85), lineWidth: 1.4)
+                    .stroke(item.accent.opacity(0.95), lineWidth: 1.5)
                     .frame(width: 18, height: 18)
+                    .shadow(color: item.accent.opacity(0.45), radius: 3)
             }
         }
         .frame(width: 20, height: 20)
@@ -243,9 +260,6 @@ private struct ViewToggleDivider: View {
 
             HStack(spacing: 10) {
                 SegmentedToggle(viewMode: $viewMode)
-                Text(viewMode == .year ? "12 个月概览" : "逐日详情")
-                    .font(.system(size: 10.5))
-                    .foregroundStyle(.secondary)
                 Spacer()
             }
         }
@@ -256,36 +270,49 @@ private struct SegmentedToggle: View {
     @Binding var viewMode: HeatmapViewMode
 
     var body: some View {
-        HStack(spacing: 0) {
-            segmentButton(.year, label: "全年")
-            segmentButton(.month, label: "本月")
+        HStack(spacing: 2) {
+            ForEach([HeatmapViewMode.year, HeatmapViewMode.month], id: \.self) { mode in
+                segment(mode)
+            }
         }
-        .padding(2)
+        .padding(3)
         .background(
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(Color.primary.opacity(0.06))
+            Capsule(style: .continuous)
+                .fill(Color.primary.opacity(0.07))
+        )
+        .overlay(
+            Capsule(style: .continuous)
+                .stroke(Color.primary.opacity(0.04), lineWidth: 0.5)
         )
     }
 
-    private func segmentButton(_ value: HeatmapViewMode, label: String) -> some View {
-        let active = viewMode == value
-        return Button {
-            withAnimation(.easeOut(duration: 0.15)) { viewMode = value }
-        } label: {
-            Text(label)
-                .font(.system(size: 11, weight: active ? .semibold : .medium))
-                .tracking(-0.05)
-                .padding(.horizontal, 11)
-                .padding(.vertical, 3)
-                .frame(minWidth: 38)
-                .foregroundStyle(active ? Color.primary : Color.secondary)
-                .background(
-                    RoundedRectangle(cornerRadius: 5, style: .continuous)
-                        .fill(active ? Color(nsColor: .windowBackgroundColor).opacity(0.95) : Color.clear)
-                        .shadow(color: Color.black.opacity(active ? 0.08 : 0), radius: active ? 1.5 : 0, x: 0, y: 0.5)
-                )
-        }
-        .buttonStyle(.plain)
+    private func segment(_ mode: HeatmapViewMode) -> some View {
+        let active = viewMode == mode
+        let label = mode == .year ? "全年" : "本月"
+
+        // No matchedGeometryEffect: a horizontal slide on the indicator was
+        // fighting the popover's vertical resize, which looked jittery. Each
+        // segment now keeps its own anchored capsule background and just
+        // cross-fades opacity in place — vertical resize is the only motion.
+        return Text(label)
+            .font(.system(size: 11.5, weight: active ? .semibold : .medium))
+            .tracking(-0.02)
+            .foregroundStyle(active ? Color.primary : Color.secondary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 4)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color(nsColor: .windowBackgroundColor))
+                    .shadow(color: Color.black.opacity(0.12), radius: 2.5, x: 0, y: 1)
+                    .opacity(active ? 1 : 0)
+            )
+            .contentShape(Capsule())
+            // onTapGesture (not Button) keeps the macOS keyboard focus ring
+            // off the segment, which had bled through .buttonStyle(.plain).
+            .onTapGesture {
+                guard viewMode != mode else { return }
+                viewMode = mode
+            }
     }
 }
 
@@ -317,7 +344,7 @@ private struct PanelFooter: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 } else {
-                    Text("\(selectedDate.rawValue) · \(statusText)")
+                    Text("\(selectedDate.rawValue) \(DayTooltipFormatter.weekdayName(selectedDate)) · \(statusText)")
                         .font(.system(size: 10.5))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)

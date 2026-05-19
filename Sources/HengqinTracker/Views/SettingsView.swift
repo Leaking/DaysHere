@@ -8,6 +8,7 @@ struct SettingsView: View {
     @ObservedObject var sync: iCloudSyncManager
     @ObservedObject var profileStore: ProfileStore
 
+    @StateObject private var launchManager = LaunchAtLoginManager()
     @State private var pendingImport: PendingImport?
     @State private var lastError: String?
     @State private var inlineMessage: String?
@@ -37,14 +38,16 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 18) {
                 header
                 profilesSection
+                launchSection
                 syncSection
                 Spacer(minLength: 0)
                 footer
             }
             .padding(22)
         }
-        .frame(width: 520, height: 540)
+        .frame(width: 520, height: 620)
         .background(.background)
+        .onAppear { launchManager.refresh() }
         .sheet(item: $profileSheet) { sheet in
             switch sheet {
             case .create:
@@ -231,6 +234,63 @@ struct SettingsView: View {
         .buttonStyle(.plain)
         .disabled(disabled)
         .help(help)
+    }
+
+    private var launchSection: some View {
+        section(title: "启动") {
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle(isOn: Binding(
+                    get: { launchManager.isEnabled },
+                    set: { launchManager.setEnabled($0) }
+                )) {
+                    Text("登录时自动启动")
+                        .font(.system(size: 12))
+                }
+                .toggleStyle(.switch)
+
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Circle()
+                        .fill(launchStatusColor)
+                        .frame(width: 8, height: 8)
+                        .overlay(Circle().stroke(launchStatusColor.opacity(0.25), lineWidth: 3).blur(radius: 0.4))
+                    Text(launchManager.statusSummary)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    if launchManager.requiresUserApproval {
+                        Button {
+                            launchManager.openLoginItemsSettings()
+                        } label: {
+                            Label("打开系统设置", systemImage: "gear")
+                                .font(.system(size: 11))
+                        }
+                        .controlSize(.small)
+                    }
+                }
+
+                if let err = launchManager.lastError {
+                    Text(err)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.red)
+                        .textSelection(.enabled)
+                }
+
+                Text("通过 macOS `ServiceManagement` 注册为登录项，可随时在 系统设置 → 通用 → 登录项 中管理。仅签名 `.app` 形式（已 codesign）才会生效。")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var launchStatusColor: Color {
+        switch launchManager.status {
+        case .enabled: return Color(red: 0.184, green: 0.561, blue: 0.247)
+        case .requiresApproval: return Color(red: 0.95, green: 0.74, blue: 0.24)
+        case .notFound: return Color(red: 0.85, green: 0.33, blue: 0.29)
+        case .notRegistered: return .secondary
+        @unknown default: return .secondary
+        }
     }
 
     private var syncSection: some View {

@@ -19,6 +19,7 @@ struct YearHeatmapView: View {
     private let calculator = ResidencyCalculator(calendar: HolidayCalendar2026())
 
     @State private var pulse = false
+    @State private var hoveredDate: DateKey?
 
     var body: some View {
         Group {
@@ -93,7 +94,14 @@ struct YearHeatmapView: View {
     private func cellView(date: DateKey, columnIndex: Int, rowIndex: Int) -> some View {
         let kind = calculator.heatmapKind(for: date, records: records, bridgedDays: stats.bridgedDays, today: today)
         let isToday = date == today
+        let isHovered = hoveredDate == date
         let radius = max(2, cellSize * 0.22)
+        let tooltip = DayTooltipFormatter.text(
+            for: date,
+            kind: kind,
+            record: records[date],
+            calendar: HolidayCalendar2026()
+        )
         Button {
             onSelect?(date)
         } label: {
@@ -119,15 +127,28 @@ struct YearHeatmapView: View {
                         .stroke(theme.accent, lineWidth: 1.5)
                         .frame(width: cellSize + 3, height: cellSize + 3)
                 }
+
+                // Hover ring — same theme.accent treatment as MonthHeatmapView
+                // for consistency. No scaling / shadow (which earlier read as
+                // a white halo on lighter cells).
+                if isHovered {
+                    RoundedRectangle(cornerRadius: radius + 1.5, style: .continuous)
+                        .stroke(theme.accent.opacity(0.85), lineWidth: 1.2)
+                        .frame(width: cellSize + 3, height: cellSize + 3)
+                }
             }
+            .animation(.easeOut(duration: 0.12), value: isHovered)
         }
         .buttonStyle(.plain)
         .contextMenu { heatmapContextMenu(for: date) }
+        .onHover { hovering in
+            hoveredDate = hovering ? date : (hoveredDate == date ? nil : hoveredDate)
+        }
         .position(
             x: labelColumnWidth + CGFloat(columnIndex) * cellOuter + cellSize / 2,
             y: monthLabelHeight + CGFloat(rowIndex) * cellOuter + cellSize / 2
         )
-        .help("\(date.rawValue) · \(HeatmapPalette.label(for: kind))")
+        .help(tooltip)
     }
 
     @ViewBuilder
