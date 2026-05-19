@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>隐私政策 · 一年几天 / DaysHere</title>
+  <style>
+    :root {
+      --fg: #1c1c1e;
+      --fg-secondary: #6b7280;
+      --bg: #fafafa;
+      --card: #ffffff;
+      --accent: #2f8f3f;
+      --border: rgba(0,0,0,0.08);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --fg: #f5f5f7;
+        --fg-secondary: #a1a1aa;
+        --bg: #0a0a0a;
+        --card: #18181b;
+        --accent: #6fd08a;
+        --border: rgba(255,255,255,0.10);
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.65;
+      font-size: 15px;
+    }
+    .container {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 32px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .brand-icon {
+      width: 44px; height: 44px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #6bcb87, #1f7a4c);
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-weight: 700; font-size: 22px;
+      box-shadow: 0 4px 12px rgba(31,122,76,0.3);
+    }
+    .brand-name { font-weight: 600; font-size: 17px; line-height: 1.2; }
+    .brand-sub { color: var(--fg-secondary); font-size: 12px; }
+    h1 { font-size: 28px; font-weight: 700; margin: 32px 0 8px; letter-spacing: -0.01em; }
+    h2 { font-size: 19px; font-weight: 600; margin: 40px 0 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+    h2:first-of-type { border-top: none; padding-top: 0; }
+    h3 { font-size: 16px; font-weight: 600; margin: 24px 0 8px; }
+    .meta { color: var(--fg-secondary); font-size: 13px; margin-bottom: 28px; }
+    p { margin: 12px 0; }
+    ul { padding-left: 22px; }
+    li { margin: 6px 0; }
+    code {
+      background: var(--card);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      font-size: 13px;
+      border: 1px solid var(--border);
+    }
+    pre {
+      background: var(--card);
+      padding: 12px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      overflow-x: auto;
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .tldr {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      padding: 14px 18px;
+      border-radius: 6px;
+      margin: 16px 0 28px;
+    }
+    .tldr strong { color: var(--accent); }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .lang-divider {
+      margin: 56px 0 16px;
+      text-align: center;
+      color: var(--fg-secondary);
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .lang-divider::before, .lang-divider::after {
+      content: "";
+      display: inline-block;
+      width: 36px;
+      height: 1px;
+      background: var(--border);
+      vertical-align: middle;
+      margin: 0 10px;
+    }
+    footer {
+      margin-top: 60px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      color: var(--fg-secondary);
+      font-size: 12px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="brand">
+      <div class="brand-icon">横</div>
+      <div>
+        <div class="brand-name">一年几天 · DaysHere</div>
+        <div class="brand-sub">隐私政策 · Privacy Policy</div>
+      </div>
+    </div>
+
+    <h1>隐私政策</h1>
+    <p class="meta">生效日期：2026-05-20 · 适用版本：v1.0.0 起</p>
+
+    <div class="tldr">
+      <strong>简短版：</strong>
+      一年几天不收集你的任何个人信息。所有数据保存在你自己的 Mac 上和你自己的 iCloud 账户里。我们没有服务器，没有分析 SDK，永远不会向任何第三方分享你的数据。
+    </div>
+
+    <h2>收集的数据</h2>
+    <p><strong>无。</strong>一年几天不向任何外部服务器发送数据。我们没有用户账号体系。</p>
+
+    <h2>存储的数据</h2>
+    <p>一年几天在你的 Mac 上本地存储以下数据：</p>
+    <ul>
+      <li>你手动标记的日期状态（"在某地"、"请假"）</li>
+      <li>你定义的"坐标档案"（名称、经纬度、半径）</li>
+      <li>应用界面偏好（主题、视图模式等）</li>
+    </ul>
+    <p>存储路径：<code>~/Library/Containers/com.harry.dayshere/Data/Library/Application Support/DaysHere/</code>（沙盒目录）。</p>
+
+    <h2>跨设备同步</h2>
+    <p>如果你在"设置"中开启了"iCloud 同步"，上述本地数据会被复制到 Apple iCloud Key-Value Storage。该数据：</p>
+    <ul>
+      <li>仅在你的 Apple ID 下的设备之间同步（同一个 Apple ID 登录的多台 Mac）</li>
+      <li>由 Apple 在端到端加密传输和存储</li>
+      <li>一年几天的开发者<strong>无法</strong>访问这部分数据</li>
+      <li>你可以随时关闭同步开关，已经同步的数据可以在 iCloud Drive 的「管理存储」中手动清除</li>
+    </ul>
+
+    <h2>定位服务</h2>
+    <p>一年几天仅在你主动点击"使用当前位置"按钮时调用 <code>CLLocationManager</code>，用于在地图选点界面定位你当前位置。</p>
+    <ul>
+      <li>定位结果<strong>仅在内存中使用</strong>，不会写入任何持久化存储</li>
+      <li>定位结果<strong>不会</strong>发送到任何外部服务器</li>
+      <li>你可以在 macOS 系统设置 → 隐私与安全性 → 定位服务 中随时撤销定位权限</li>
+    </ul>
+
+    <h2>不使用的服务</h2>
+    <ul>
+      <li>❌ 任何第三方分析 SDK（Google Analytics, Firebase, Mixpanel 等）</li>
+      <li>❌ 任何第三方崩溃报告（Sentry, Bugsnag 等）</li>
+      <li>❌ 任何广告 SDK</li>
+      <li>❌ 任何 IDFA / 设备指纹</li>
+      <li>❌ 任何远程配置 / A/B 测试</li>
+    </ul>
+
+    <h2>第三方服务</h2>
+    <p>一年几天唯一调用的第三方服务是 <strong>Apple Maps</strong>（MapKit 框架）：</p>
+    <ul>
+      <li>用于在"在地图上选择…"界面渲染地图瓦片</li>
+      <li>用于地址搜索（<code>MKLocalSearchCompleter</code>）</li>
+      <li>用于反向地理编码（<code>CLGeocoder</code>）</li>
+    </ul>
+    <p>这些调用全部由 Apple 处理，受 <a href="https://www.apple.com/legal/privacy/">Apple 的服务条款与隐私政策</a> 约束。</p>
+
+    <h2>数据删除</h2>
+    <p>你可以通过以下方式完全删除你的数据：</p>
+    <ol>
+      <li>在一年几天设置中删除全部坐标档案（保留 1 个，然后删另 1 个，最后通过 macOS Finder 删除应用沙盒目录）</li>
+      <li>卸载应用：删除 <code>/Applications/一年几天.app</code> 后运行：<pre>rm -rf ~/Library/Containers/com.harry.dayshere</pre></li>
+      <li>iCloud 同步数据：登录 <a href="https://icloud.com">iCloud.com</a> → 账号设置 → 管理 → 一年几天 → 删除</li>
+    </ol>
+
+    <h2>变更</h2>
+    <p>我们如果将来收集任何数据（不打算），会更新本文并在应用内显著提示。</p>
+
+    <h2>联系</h2>
+    <p>
+      Issue / 反馈：<a href="https://github.com/Leaking/DaysHere/issues">https://github.com/Leaking/DaysHere/issues</a><br>
+      邮件：<a href="mailto:chenhuazhaoao@gmail.com">chenhuazhaoao@gmail.com</a>
+    </p>
+
+    <div class="lang-divider">English version below</div>
+
+    <h1>Privacy Policy</h1>
+    <p class="meta">Effective date: 2026-05-20 · Applies to: v1.0.0 and later</p>
+
+    <div class="tldr">
+      <strong>TL;DR:</strong>
+      DaysHere collects nothing. All your data stays on your Mac and in your own iCloud. No servers, no analytics, no third-party sharing. Ever.
+    </div>
+
+    <h2>Data we collect</h2>
+    <p><strong>None.</strong> DaysHere has no user account system and makes no network requests to any server we operate.</p>
+
+    <h2>Data stored on your device</h2>
+    <p>DaysHere stores the following on your Mac:</p>
+    <ul>
+      <li>Day-level state you marked manually ("here", "leave")</li>
+      <li>Location profiles you defined (name, latitude, longitude, radius)</li>
+      <li>UI preferences (theme, view mode, etc.)</li>
+    </ul>
+    <p>Storage path: <code>~/Library/Containers/com.harry.dayshere/Data/Library/Application Support/DaysHere/</code> (sandboxed).</p>
+
+    <h2>Sync between your devices</h2>
+    <p>If you opt in to iCloud sync in Settings, the data above is copied to Apple iCloud Key-Value Storage. This sync:</p>
+    <ul>
+      <li>Goes only between devices signed in to the same Apple ID</li>
+      <li>Uses Apple's encrypted transport and storage</li>
+      <li>Is <strong>not accessible</strong> by the DaysHere developer</li>
+      <li>Can be disabled at any time; synced data can be cleared in iCloud Drive → Manage Storage</li>
+    </ul>
+
+    <h2>Location services</h2>
+    <p>DaysHere only requests location through <code>CLLocationManager</code> when you tap "Use current location" in the map picker.</p>
+    <ul>
+      <li>Coordinates are used only in memory</li>
+      <li>Coordinates are <strong>never</strong> transmitted to any external server</li>
+      <li>You can revoke Location permission anytime in System Settings → Privacy &amp; Security → Location Services</li>
+    </ul>
+
+    <h2>Third-party services not used</h2>
+    <ul>
+      <li>❌ Any third-party analytics SDK</li>
+      <li>❌ Any third-party crash reporter</li>
+      <li>❌ Any ad SDK</li>
+      <li>❌ Any IDFA or device fingerprinting</li>
+      <li>❌ Any remote config or A/B testing</li>
+    </ul>
+
+    <h2>Third-party services used</h2>
+    <p>Only <strong>Apple Maps</strong> (via Apple's MapKit framework):</p>
+    <ul>
+      <li>Map tile rendering in the location picker</li>
+      <li>Place search (<code>MKLocalSearchCompleter</code>)</li>
+      <li>Reverse geocoding (<code>CLGeocoder</code>)</li>
+    </ul>
+    <p>All such calls are handled by Apple under <a href="https://www.apple.com/legal/privacy/">Apple's privacy policy</a>.</p>
+
+    <h2>Data deletion</h2>
+    <ol>
+      <li>Remove all location profiles in Settings (delete N-1 first, then delete the last one through Finder)</li>
+      <li>Uninstall the app: drag DaysHere.app to Trash, then run: <pre>rm -rf ~/Library/Containers/com.harry.dayshere</pre></li>
+      <li>iCloud-synced data: sign in to <a href="https://icloud.com">iCloud.com</a> → Account Settings → Manage → DaysHere → Delete</li>
+    </ol>
+
+    <h2>Changes</h2>
+    <p>If we ever start collecting any data (we don't plan to), this policy will be updated and you will be notified in-app.</p>
+
+    <h2>Contact</h2>
+    <p>
+      Issues / feedback: <a href="https://github.com/Leaking/DaysHere/issues">https://github.com/Leaking/DaysHere/issues</a><br>
+      Email: <a href="mailto:chenhuazhaoao@gmail.com">chenhuazhaoao@gmail.com</a>
+    </p>
+
+    <footer>
+      © 2026 Huazhao Chen · <a href="https://github.com/Leaking/DaysHere">GitHub</a>
+    </footer>
+  </div>
+</body>
+</html>
