@@ -6,7 +6,7 @@ struct StatsRowView: View {
     let today: DateKey
 
     var body: some View {
-        HStack(spacing: 28) {
+        HStack(alignment: .top, spacing: 18) {
             StatBlock(
                 title: "自然日",
                 value: stats.naturalDays,
@@ -15,8 +15,9 @@ struct StatsRowView: View {
             )
 
             Rectangle()
-                .fill(.separator.opacity(0.5))
-                .frame(width: 1, height: 54)
+                .fill(Color.primary.opacity(0.08))
+                .frame(width: 1, height: 56)
+                .padding(.top, 2)
 
             StatBlock(
                 title: "工作日",
@@ -50,54 +51,61 @@ private struct StatBlock: View {
     let target: Int
     let expected: Int
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+    private let aheadColor = Color(red: 0.184, green: 0.561, blue: 0.247) // #2F8F3F
+    private let behindColor = Color(red: 0.851, green: 0.329, blue: 0.290) // #D9544A
 
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 10, weight: .semibold))
+                .tracking(0.4)
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
                 Text("\(value)")
-                    .font(.system(size: 32, weight: .semibold, design: .rounded))
+                    .font(.system(size: 26, weight: .semibold, design: .rounded))
                     .monospacedDigit()
+                    .tracking(-0.4)
                 Text("/ \(target)")
-                    .font(.callout.weight(.medium))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(.secondary)
-                Spacer()
+                Spacer(minLength: 4)
                 Text(paceText)
-                    .font(.caption.weight(.semibold))
+                    .font(.system(size: 10.5, weight: .semibold))
                     .foregroundStyle(paceColor)
+                    .monospacedDigit()
             }
 
             GeometryReader { proxy in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(.secondary.opacity(0.12))
+                        .fill(Color.primary.opacity(0.08))
                     Capsule()
                         .fill(paceColor)
                         .frame(width: proxy.size.width * min(1, Double(value) / Double(target)))
                     Rectangle()
-                        .fill(.primary.opacity(0.45))
+                        .fill(Color.primary.opacity(0.4))
                         .frame(width: 1.5)
-                        .offset(x: proxy.size.width * min(1, Double(expected) / Double(target)))
+                        .offset(x: proxy.size.width * min(1, Double(expected) / Double(target)) - 0.75)
                 }
             }
             .frame(height: 4)
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var diff: Int {
-        value - expected
-    }
+    private var diff: Int { value - expected }
 
     private var paceText: String {
-        if diff > 0 { return "超前 \(diff) 天" }
-        if diff < 0 { return "落后 \(abs(diff)) 天" }
+        if diff >= 1 { return "↑ 超前 \(diff) 天" }
+        if diff <= -1 { return "↓ 落后 \(abs(diff)) 天" }
         return "持平"
     }
 
     private var paceColor: Color {
-        diff < 0 ? .red : .green
+        if diff >= 1 { return aheadColor }
+        if diff <= -1 { return behindColor }
+        return .secondary
     }
 }

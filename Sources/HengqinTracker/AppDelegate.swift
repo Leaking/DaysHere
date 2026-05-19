@@ -4,9 +4,11 @@ import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
-    private let store = ResidencyStore()
+    private let profileStore = ProfileStore()
+    private lazy var store = ResidencyStore(profileStore: profileStore)
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
+    private var settingsWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -47,8 +49,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.contentSize = Self.popoverSize
         popover.delegate = self
         let controller = NSHostingController(
-            rootView: MenuBarPanelView(store: store)
-                .frame(width: Self.panelWidth, height: Self.panelHeight)
+            rootView: MenuBarPanelView(store: store, openSettings: { [weak self] in
+                self?.showSettings()
+            })
+            .frame(width: Self.panelWidth, height: Self.panelHeight)
         )
         if #available(macOS 13.0, *) {
             controller.sizingOptions = []
@@ -80,6 +84,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     func popoverDidClose(_ notification: Notification) {
         statusItem?.button?.highlight(false)
+    }
+
+    // MARK: - Settings window
+
+    private func showSettings() {
+        if let window = settingsWindow {
+            NSApp.activate(ignoringOtherApps: true)
+            window.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        let view = SettingsView(store: store, sync: store.sync, profileStore: profileStore)
+        let controller = NSHostingController(rootView: view)
+        let window = NSWindow(contentViewController: controller)
+        window.title = "HengqinTracker 设置"
+        window.titlebarAppearsTransparent = false
+        window.styleMask = [.titled, .closable]
+        window.isReleasedWhenClosed = false
+        window.center()
+        settingsWindow = window
+
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
     }
 
     private static let panelWidth: CGFloat = 640

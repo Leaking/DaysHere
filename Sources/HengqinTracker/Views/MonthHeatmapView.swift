@@ -14,62 +14,77 @@ struct MonthHeatmapView: View {
     var onNextMonth: (() -> Void)?
 
     private let calculator = ResidencyCalculator(calendar: HolidayCalendar2026())
+    private let holidayCalendar = HolidayCalendar2026()
     private var layout: MonthHeatmapLayout {
         MonthHeatmapLayout(year: 2026, month: month, weekStart: .monday)
     }
 
+    /// Trim trailing weeks that have no in-month days so we don't reserve a
+    /// 6th row when June (5 rows) only needs 5.
+    private var visibleWeeks: [[DateKey?]] {
+        var weeks = layout.weeks
+        while let last = weeks.last, last.allSatisfy({ $0 == nil }) {
+            weeks.removeLast()
+        }
+        return weeks
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Text("\(month) 月视图")
-                    .font(.subheadline.weight(.semibold))
+        VStack(alignment: .leading, spacing: 4) {
+            monthHeader
+            weekdayRow
+            gridView
+        }
+    }
 
-                Text(monthSummary)
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(.secondary)
+    // MARK: - Header / weekday row
 
-                Spacer()
+    private var monthHeader: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text("2026 年 \(month) 月")
+                .font(.system(size: 13, weight: .semibold))
+                .tracking(-0.1)
+            Text(monthSummary)
+                .font(.system(size: 10.5))
+                .foregroundStyle(.secondary)
+            Spacer()
+            navButton(systemName: "chevron.left", action: { onPreviousMonth?() }, disabled: month <= 1)
+            navButton(systemName: "chevron.right", action: { onNextMonth?() }, disabled: month >= 12)
+        }
+    }
 
-                Button {
-                    onPreviousMonth?()
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .frame(width: 14, height: 14)
-                }
-                .controlSize(.small)
-                .disabled(month <= 1)
-                .help("上个月")
-
-                Button {
-                    onNextMonth?()
-                } label: {
-                    Image(systemName: "chevron.right")
-                        .frame(width: 14, height: 14)
-                }
-                .controlSize(.small)
-                .disabled(month >= 12)
-                .help("下个月")
-            }
-
-            HStack(spacing: columnGap) {
+    private var weekdayRow: some View {
+        GeometryReader { proxy in
+            HStack(spacing: 3) {
                 ForEach(layout.weekdayLabels, id: \.self) { label in
                     Text(label)
-                        .font(.caption2.weight(.semibold))
+                        .font(.system(size: 9.5, weight: .medium))
                         .foregroundStyle(.secondary)
-                        .frame(width: cellWidth)
+                        .frame(width: (proxy.size.width - 3 * 6) / 7, alignment: .center)
                 }
             }
+        }
+        .frame(height: 11)
+    }
 
-            VStack(spacing: rowGap) {
-                ForEach(Array(layout.weeks.enumerated()), id: \.offset) { _, week in
-                    HStack(spacing: columnGap) {
+    // MARK: - Grid (responsive)
+
+    private var gridView: some View {
+        GeometryReader { geo in
+            let rows = max(1, visibleWeeks.count)
+            let cellW = (geo.size.width - 3 * 6) / 7
+            let cellH = max(14, (geo.size.height - CGFloat(rows - 1) * 3) / CGFloat(rows))
+
+            VStack(spacing: 3) {
+                ForEach(Array(visibleWeeks.enumerated()), id: \.offset) { _, week in
+                    HStack(spacing: 3) {
                         ForEach(Array(week.enumerated()), id: \.offset) { _, maybeDate in
                             if let date = maybeDate {
                                 dayCell(for: date)
+                                    .frame(width: cellW, height: cellH)
                             } else {
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(.clear)
-                                    .frame(width: cellWidth, height: cellHeight)
+                                Color.clear
+                                    .frame(width: cellW, height: cellH)
                             }
                         }
                     }
@@ -78,79 +93,90 @@ struct MonthHeatmapView: View {
         }
     }
 
-    private var cellWidth: CGFloat { 76 }
-    private var cellHeight: CGFloat { 25 }
-    private var columnGap: CGFloat { 5 }
-    private var rowGap: CGFloat { 4 }
-
     private var monthSummary: String {
-        let dates = DateKey.allDates(in: 2026).filter { $0.month == month && $0 <= today }
-        let counted = dates.filter {
-            calculator.dayStatus(for: $0, records: records, bridgedDays: stats.bridgedDays) != .none
-        }.count
-        return "\(counted) 天已计入"
+        let monthStats = calculator.monthStats(for: month, records: records, bridgedDays: stats.bridgedDays)
+        return "\(monthStats.naturalDays) 自然日 · \(monthStats.workdays) 工作日"
     }
+
+    private func navButton(systemName: String, action: @escaping () -> Void, disabled: Bool) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 9.5, weight: .semibold))
+                .foregroundStyle(disabled ? Color.secondary.opacity(0.3) : Color.secondary)
+                .frame(width: 20, height: 20)
+                .background(
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(Color.primary.opacity(0.05))
+                )
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+    }
+
+    // MARK: - Day cell (inline, single row — no bottom dots)
 
     private func dayCell(for date: DateKey) -> some View {
         let kind = calculator.heatmapKind(for: date, records: records, bridgedDays: stats.bridgedDays, today: today)
+        let isToday = date == today
+        let isFuture = date > today
+        let isFilled = !isFuture && kind != .absent
+        let isHoliday = holidayCalendar.isHoliday(date)
+        let isWorkdayOverride = holidayCalendar.workdayOverrides.contains(date)
+
+        let dayNumberColor: Color = isFilled ? HeatmapPalette.textColor(for: kind) : Color.primary.opacity(0.85)
+        let badgeColor: Color = isFilled ? HeatmapPalette.subtleForeground(for: kind) : .secondary
+
         return Button {
             onSelect?(date)
         } label: {
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(HeatmapPalette.color(for: kind, theme: theme))
-                .overlay(alignment: .leading) {
-                    Text("\(date.day)")
-                        .font(.caption2.weight(.semibold))
-                        .monospacedDigit()
-                        .foregroundStyle(foregroundStyle(for: kind))
-                        .padding(.leading, 8)
-                }
-                .overlay(cellOutline(for: date))
-                .frame(width: cellWidth, height: cellHeight)
+                .overlay(
+                    HStack(alignment: .firstTextBaseline, spacing: 2) {
+                        Text("\(date.day)")
+                            .font(.system(size: 11, weight: isToday ? .bold : .semibold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(dayNumberColor)
+                        Spacer(minLength: 0)
+                        if isHoliday {
+                            Text("休")
+                                .font(.system(size: 8, weight: .semibold))
+                                .foregroundStyle(badgeColor)
+                        } else if isWorkdayOverride {
+                            Text("班")
+                                .font(.system(size: 8, weight: .semibold))
+                                .foregroundStyle(badgeColor)
+                        }
+                    }
+                    .padding(.horizontal, 5)
+                )
+                .overlay(cellOutline(isToday: isToday, isSelected: date == selectedDate))
         }
         .buttonStyle(.plain)
-        .contextMenu {
-            Button("标记在横琴") {
-                onAction?(date, .markInHengqin)
-            }
-            Button("标记请假") {
-                onAction?(date, .markLeave)
-            }
-            Divider()
-            Button("取消在横琴") {
-                onAction?(date, .unmarkInHengqin)
-            }
-            Button("取消请假") {
-                onAction?(date, .unmarkLeave)
-            }
-            Button("清除当天") {
-                onAction?(date, .clear)
-            }
-        }
+        .contextMenu { contextMenu(for: date) }
         .help("\(date.rawValue) · \(HeatmapPalette.label(for: kind))")
     }
 
-    private func foregroundStyle(for kind: HeatmapKind) -> Color {
-        switch kind {
-        case .gps, .manual:
-            return .white
-        default:
-            return .primary
-        }
+    @ViewBuilder
+    private func contextMenu(for date: DateKey) -> some View {
+        Button("标记在横琴") { onAction?(date, .markInHengqin) }
+        Button("标记请假") { onAction?(date, .markLeave) }
+        Divider()
+        Button("取消在横琴") { onAction?(date, .unmarkInHengqin) }
+        Button("取消请假") { onAction?(date, .unmarkLeave) }
+        Button("清除当天") { onAction?(date, .clear) }
     }
 
     @ViewBuilder
-    private func cellOutline(for date: DateKey) -> some View {
+    private func cellOutline(isToday: Bool, isSelected: Bool) -> some View {
         ZStack {
-            if date == today {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(.primary, lineWidth: 1.2)
-                    .padding(-1.5)
+            if isToday {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(Color.primary.opacity(0.85), lineWidth: 1.2)
             }
-            if date == selectedDate {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .stroke(theme.accent, lineWidth: 2)
-                    .padding(-3)
+            if isSelected, !isToday {
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(theme.accent, lineWidth: 1.4)
             }
         }
     }

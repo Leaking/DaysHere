@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+        Entitlements for HengqinTracker (Bundle ID com.harry.dayshere, team HYF3XBWBL2).
+        codesign will substitute $(TeamIdentifierPrefix) with "HYF3XBWBL2." at sign time.
+
+        To switch teams or bundle IDs, edit:
+          * com.apple.developer.ubiquity-kvstore-identifier
+          * com.apple.security.application-groups (if you ever add one)
+        and re-run script/build_signed_app.sh.
+    -->
+    <key>com.apple.developer.ubiquity-kvstore-identifier</key>
+    <string>$(TeamIdentifierPrefix)com.harry.dayshere</string>
+
+    <key>com.apple.developer.icloud-services</key>
+    <array>
+        <string>CloudKit</string>
+    </array>
+
+    <!--
+        App sandbox is required for Mac App Store distribution; optional for
+        Developer ID distribution. Leaving it on keeps the door open and
+        forces us to be explicit about file access (we use NSOpen/SavePanel
+        which counts as "user-selected").
+    -->
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+
+    <key>com.apple.security.network.client</key>
+    <true/>
+
+    <!--
+        Location services for the in-app map picker (ProfileEditorView).
+        Sandbox-scoped entitlement — does NOT require a provisioning profile.
+    -->
+    <key>com.apple.security.personal-information.location</key>
+    <true/>
+</dict>
+</plist>

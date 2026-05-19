@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+        "Lite" entitlements used when no provisioning profile has been embedded
+        in the .app bundle yet. Contains only un-restricted entitlements so the
+        app can launch on macOS without a profile.
+
+        iCloud KVS is intentionally OMITTED here — see HengqinTracker.entitlements
+        for the full set that requires a Developer ID provisioning profile.
+    -->
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+
+    <key>com.apple.security.network.client</key>
+    <true/>
+
+    <!--
+        Location services for the in-app map picker. Sandbox-scoped — no
+        provisioning profile needed, so it stays in LITE entitlements.
+    -->
+    <key>com.apple.security.personal-information.location</key>
+    <true/>
+</dict>
+</plist>

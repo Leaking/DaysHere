@@ -124,6 +124,35 @@ public struct ResidencyCalculator: Sendable {
         }
     }
 
+    public struct MonthStats: Equatable, Sendable {
+        public let naturalDays: Int
+        public let workdays: Int
+
+        public init(naturalDays: Int, workdays: Int) {
+            self.naturalDays = naturalDays
+            self.workdays = workdays
+        }
+    }
+
+    public func monthStats(
+        for month: Int,
+        records: [DateKey: DayRecord],
+        bridgedDays: Set<DateKey>
+    ) -> MonthStats {
+        var naturalDays = 0
+        var workdays = 0
+        for date in DateKey.allDates(in: year) where date.month == month {
+            let status = dayStatus(for: date, records: records, bridgedDays: bridgedDays)
+            if status != .none {
+                naturalDays += 1
+                if calendar.isWorkday(date) {
+                    workdays += 1
+                }
+            }
+        }
+        return MonthStats(naturalDays: naturalDays, workdays: workdays)
+    }
+
     public func yearStats(records: [DateKey: DayRecord]) -> YearStats {
         let bridged = calculateBridgedDays(records: records)
         var naturalDays = 0

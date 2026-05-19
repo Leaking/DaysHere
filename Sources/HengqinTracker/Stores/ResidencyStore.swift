@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import HengqinCore
 import SwiftUI
 
@@ -25,11 +26,21 @@ final class ResidencyStore: ObservableObject {
         }
     }
     @Published var exportMessage: String?
+    @Published private(set) var lastImportSummary: String?
+
+    let sync: iCloudSyncManager
+    let profileStore: ProfileStore
 
     private static let themeKey = "hengqin.theme"
     private static let viewModeKey = "hengqin.viewMode"
     private static let visibleMonthKey = "hengqin.visibleMonth"
-    private let recordsURL: URL
+
+    /// The records file URL for the currently active profile.
+    private var recordsURL: URL {
+        profileStore.recordsURLForActiveProfile()
+    }
+
+    private var profileObserver: AnyCancellable?
 
     private var calculator: ResidencyCalculator {
         ResidencyCalculator(calendar: calendar)
@@ -39,18 +50,47 @@ final class ResidencyStore: ObservableObject {
         calculator.yearStats(records: records)
     }
 
-    init(records: [DateKey: DayRecord]? = nil, recordsURL: URL? = nil) {
+    var activeProfile: LocationProfile { profileStore.activeProfile }
+
+    init(
+        profileStore: ProfileStore = ProfileStore(),
+        sync: iCloudSyncManager? = nil
+    ) {
         let today = DateKey(date: Date())
         self.today = today.year == 2026 ? today : DemoDataFactory.today
-        self.recordsURL = recordsURL ?? Self.defaultRecordsURL()
-        self.records = records ?? Self.loadRecords(from: self.recordsURL)
+        self.profileStore = profileStore
+
+        let suffix = profileStore.kvsKeySuffix(for: profileStore.activeProfile)
+        self.sync = sync ?? iCloudSyncManager(keySuffix: suffix)
+
+        let initialURL = profileStore.recordsURLForActiveProfile()
+        self.records = Self.loadRecords(from: initialURL)
         self.selectedDate = self.today
+
         let rawViewMode = UserDefaults.standard.string(forKey: Self.viewModeKey) ?? HeatmapViewMode.year.rawValue
         self.viewMode = HeatmapViewMode(rawValue: rawViewMode) ?? .year
+
         let savedMonth = UserDefaults.standard.integer(forKey: Self.visibleMonthKey)
         self.visibleMonth = (1...12).contains(savedMonth) ? savedMonth : self.today.month
+
         let rawTheme = UserDefaults.standard.string(forKey: Self.themeKey) ?? AppTheme.sequoia.rawValue
         self.theme = AppTheme(rawValue: rawTheme) ?? .sequoia
+
+        self.sync.onExternalChange = { [weak self] change in
+            guard let self else { return }
+            if case .adopt(let remote) = change {
+                self.adoptRemoteRecords(remote)
+            }
+        }
+        self.sync.bootstrap(currentRecords: self.records)
+
+        profileObserver = profileStore.$collection
+            .removeDuplicates(by: { $0.activeProfileId == $1.activeProfileId })
+            .dropFirst()
+            .sink { [weak self] collection in
+                guard let self else { return }
+                self.handleProfileSwitch(to: collection.activeProfile)
+            }
     }
 
     func heatmapKind(for date: DateKey) -> HeatmapKind {
@@ -72,6 +112,7 @@ final class ResidencyStore: ObservableObject {
         selectedDate = date
         visibleMonth = date.month
         saveRecords()
+        sync.push(records: records)
         exportMessage = "已更新 \(date.rawValue)"
     }
 
@@ -82,6 +123,91 @@ final class ResidencyStore: ObservableObject {
     func showNextMonth() {
         visibleMonth = min(12, visibleMonth + 1)
     }
+
+    // MARK: - Import / Export
+
+    /// Export records for a specific profile. Defaults to the active profile.
+    /// Non-active profiles are read from disk directly.
+    func exportBackupData(for profileId: UUID? = nil) throws -> Data {
+        let target = profileId ?? activeProfile.id
+        if target == activeProfile.id {
+            return try DataBackup.encode(records: records)
+        }
+        guard let profile = profileStore.collection.profile(with: target) else {
+            throw ImportExportError.profileNotFound
+        }
+        let url = profileStore.recordsURL(for: profile)
+        let snapshot = Self.loadRecords(from: url)
+        return try DataBackup.encode(records: snapshot)
+    }
+
+    /// Replace all records of the specified profile. For the **active** profile
+    /// the in-memory state is updated and iCloud is pushed immediately;
+    /// otherwise the JSON file is written directly and iCloud will pick the
+    /// change up next time the user switches into that profile.
+    func importBackupReplacingAll(from data: Data, into profileId: UUID? = nil) throws -> ImportSummary {
+        let backup = try DataBackup.decode(data)
+        let target = profileId ?? activeProfile.id
+
+        if target == activeProfile.id {
+            let before = records.count
+            records = backup.records
+            saveRecords()
+            sync.push(records: records, force: true)
+            let summary = ImportSummary(
+                replacedCount: before,
+                importedCount: backup.records.count,
+                exportDate: backup.exportDate,
+                profileName: activeProfile.name
+            )
+            lastImportSummary = summary.shortDescription
+            return summary
+        }
+
+        guard let profile = profileStore.collection.profile(with: target) else {
+            throw ImportExportError.profileNotFound
+        }
+        let url = profileStore.recordsURL(for: profile)
+        let before = Self.loadRecords(from: url).count
+        let payload = Dictionary(uniqueKeysWithValues: backup.records.map { ($0.key.rawValue, $0.value) })
+        let encoded = try JSONEncoder().encode(payload)
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try encoded.write(to: url, options: .atomic)
+
+        let summary = ImportSummary(
+            replacedCount: before,
+            importedCount: backup.records.count,
+            exportDate: backup.exportDate,
+            profileName: profile.name
+        )
+        lastImportSummary = summary.shortDescription
+        return summary
+    }
+
+    enum ImportExportError: LocalizedError {
+        case profileNotFound
+        var errorDescription: String? {
+            switch self {
+            case .profileNotFound: return "未找到目标坐标档案"
+            }
+        }
+    }
+
+    struct ImportSummary {
+        let replacedCount: Int
+        let importedCount: Int
+        let exportDate: String
+        let profileName: String
+
+        var shortDescription: String {
+            "「\(profileName)」已导入 \(importedCount) 天 · 替换原有 \(replacedCount) 天"
+        }
+    }
+
+    // MARK: - Heatmap export image
 
     func exportHeatmapImage() {
         let snapshot = HeatmapSnapshot(
@@ -105,7 +231,8 @@ final class ResidencyStore: ObservableObject {
 
         do {
             let downloads = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0]
-            let url = downloads.appendingPathComponent("横琴热力图-2026-\(today.rawValue).png")
+            let stem = "横琴热力图-2026-\(activeProfile.name)-\(today.rawValue).png"
+            let url = downloads.appendingPathComponent(stem)
             try data.write(to: url, options: .atomic)
             exportMessage = "已导出到下载目录"
         } catch {
@@ -113,15 +240,35 @@ final class ResidencyStore: ObservableObject {
         }
     }
 
+    // MARK: - Internal
+
+    private func handleProfileSwitch(to profile: LocationProfile) {
+        let nextURL = profileStore.recordsURL(for: profile)
+        records = Self.loadRecords(from: nextURL)
+        selectedDate = today
+        exportMessage = "已切换到「\(profile.name)」"
+
+        sync.switchProfile(suffix: profileStore.kvsKeySuffix(for: profile))
+        sync.bootstrap(currentRecords: records)
+    }
+
+    private func adoptRemoteRecords(_ remote: [DateKey: DayRecord]) {
+        guard remote != records else { return }
+        records = remote
+        saveRecords()
+        exportMessage = "已通过 iCloud 同步"
+    }
+
     private func saveRecords() {
+        let url = recordsURL
         do {
             try FileManager.default.createDirectory(
-                at: recordsURL.deletingLastPathComponent(),
+                at: url.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
             let payload = Dictionary(uniqueKeysWithValues: records.map { ($0.key.rawValue, $0.value) })
             let data = try JSONEncoder().encode(payload)
-            try data.write(to: recordsURL, options: .atomic)
+            try data.write(to: url, options: .atomic)
         } catch {
             exportMessage = "保存失败：\(error.localizedDescription)"
         }
@@ -135,13 +282,6 @@ final class ResidencyStore: ObservableObject {
             return [:]
         }
         return Dictionary(uniqueKeysWithValues: payload.map { (DateKey($0.key), $0.value) })
-    }
-
-    private static func defaultRecordsURL() -> URL {
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return base
-            .appendingPathComponent("HengqinTracker", isDirectory: true)
-            .appendingPathComponent("records.json")
     }
 }
 
