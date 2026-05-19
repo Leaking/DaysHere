@@ -7,7 +7,7 @@ struct HeatmapExportView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .firstTextBaseline) {
-                Text("横琴驻留追踪 · 2026 全年热力图")
+                Text("一年几天 · 2026 全年热力图")
                     .font(.system(size: 22, weight: .semibold))
                 Spacer()
                 Text("截至 \(snapshot.today.rawValue)")

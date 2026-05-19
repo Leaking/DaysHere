@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+        Mac App Store distribution entitlements for DaysHere.
+        Differences from script/HengqinTracker.entitlements (Developer ID):
+          * Sandbox stays ON (MAS requires it)
+          * Same iCloud KVS identifier
+          * No com.apple.security.get-task-allow (forbidden for distribution)
+          * No com.apple.security.cs.* hardened runtime exceptions
+    -->
+    <key>com.apple.developer.ubiquity-kvstore-identifier</key>
+    <string>$(TeamIdentifierPrefix)com.harry.dayshere</string>
+
+    <key>com.apple.developer.icloud-services</key>
+    <array>
+        <string>CloudKit</string>
+    </array>
+
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+
+    <key>com.apple.security.network.client</key>
+    <true/>
+
+    <key>com.apple.security.personal-information.location</key>
+    <true/>
+</dict>
+</plist>

@@ -42,6 +42,27 @@
   - 档案列表**不**走 iCloud（不同 Mac 关心的档案集合可能不同），仅 records 走云
   - 至少保留一个档案（删除按钮在只剩一个时禁用）
 
+## 变更记录 - 2026-05-20 (e)
+
+- **上下文**：v1.0 提交审核前的发布物准备 — Mac App Store 上架素材、签名工具、隐私政策托管
+- **关键变更**
+  - Asset generator (`Sources/HengqinTracker/Support/AssetGenerator.swift`)：HengqinTracker `--generate-assets --out <path>` 用 SwiftUI ImageRenderer 渲染 1024 app icon + 3 张 2560×1600 截图（年视图浅色 / 月视图浅色 / 年视图石墨）+ 1 张 share-card；`main.swift` 拦截 CLI 参数提前 exit
+  - `MenuBarPanelView` 新增 `forRendering: Bool` 参数，true 时把 YearHeatmapView 的 ScrollView 关闭，否则 ImageRenderer 渲不出热力图
+  - HeatmapExportView 标题从 "横琴驻留追踪 · 2026 全年热力图" 改为 "一年几天 · 2026 全年热力图"
+  - `script/build_signed_app.sh` 自动选用 1024 / 512 / 128 中最高分辨率的 icon 源生成 icns
+  - 新增 `script/build_mas_app.sh` + `script/HengqinTracker.entitlements.mas`：Mac App Distribution + Mac Installer Distribution 双签名 + productbuild .pkg；MAS entitlements 跟 Developer ID 的差异点（无 get-task-allow、保留 sandbox）已注释说明
+  - 隐私政策 HTML 化并发布到 `https://leaking.github.io/DaysHere/privacy/`（GitHub Pages，orphan gh-pages 分支，自动暗黑/浅色双模式样式）
+  - `docs/app-store/08-submission-checklist.md` 重写为针对性强的 step-by-step：每一步多少分钟、点哪个按钮、填什么值、对应 docs/app-store/ 哪个文件
+  - 联系邮箱 chenhuazhaoao@gmail.com 写入 01-app-info / 06-privacy-policy / 07-app-review-info；Apple ID 邮箱 742223410@qq.com 标注为登录用、不公开
+  - `.gitignore` 把 `script/*.provisionprofile` 全部排除（之前只 cover 了 `embedded.provisionprofile`，MAS profile 文件名不同也得保护）
+- **理由**：
+  - 把所有可程序化的资产生成都跑通，未来改名 / 改主题色 / 改 demo data 后一条命令重出
+  - LITE 与 FULL 与 MAS 三个签名通道独立维护，避免混淆
+  - 隐私政策静态托管，URL 永不失效（即使仓库改名 / 转移）
+- **后续影响**：
+  - 用户只剩"登录 Apple 后台点按钮"的工作；所有需要写的字段都已有现成文本
+  - 想换 icon 字符（从"横"换成别的）只需要改 `AssetGenerator.swift` 的 `AppIconView` 里那一行 `Text("横")`，重跑 `--generate-assets`
+
 ## 变更记录 - 2026-05-20 (d)
 
 - **上下文**：产品确认对外名称 = 「一年几天」/ DaysHere；面板标题应反映当前坐标档案以增强多档案语境；底部需要加"分享"按钮支持快速复制看板图

@@ -4,6 +4,9 @@ import SwiftUI
 struct MenuBarPanelView: View {
     @ObservedObject var store: ResidencyStore
     var openSettings: () -> Void = {}
+    /// Disables scroll views and onAppear animations — required when this
+    /// view is rendered through `ImageRenderer` (asset generation, share).
+    var forRendering: Bool = false
 
     private var selectedDate: DateKey {
         store.selectedDate ?? store.today
@@ -75,7 +78,8 @@ struct MenuBarPanelView: View {
                 theme: store.theme,
                 selectedDate: store.selectedDate,
                 onSelect: { store.select($0) },
-                onAction: { date, action in store.apply(action, to: date) }
+                onAction: { date, action in store.apply(action, to: date) },
+                scrollable: !forRendering
             )
             .frame(height: Self.heatmapBodyHeight, alignment: .topLeading)
         } else {

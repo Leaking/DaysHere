@@ -71,8 +71,8 @@ Thank you for reviewing!
 |---|---|
 | First name | Huazhao |
 | Last name | Chen |
-| Phone | （TODO 你填） |
-| Email | （TODO 你填） |
+| Phone | （**填你愿意公开的手机号**；审核不会拨打，但表单要求必填） |
+| Email | chenhuazhaoao@gmail.com |
 
 ## App Demo Account
 

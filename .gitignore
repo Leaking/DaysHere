@@ -1,5 +1,5 @@
 .build/
 dist/
 .DS_Store
-script/embedded.provisionprofile
+script/*.provisionprofile
 script/*.resolved.plist

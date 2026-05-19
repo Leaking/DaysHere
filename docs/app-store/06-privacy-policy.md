@@ -82,7 +82,7 @@ rm -rf ~/Library/Containers/com.harry.dayshere
 ## 联系
 
 issue / 反馈：[https://github.com/Leaking/DaysHere/issues](https://github.com/Leaking/DaysHere/issues)
-邮件：（**TODO 你来填**）
+邮件：[chenhuazhaoao@gmail.com](mailto:chenhuazhaoao@gmail.com)
 
 ---
 
@@ -160,4 +160,4 @@ If we ever start collecting any data (we don't plan to), this policy will be upd
 ## Contact
 
 Issues / feedback: [https://github.com/Leaking/DaysHere/issues](https://github.com/Leaking/DaysHere/issues)
-Email: **TODO — please fill in**
+Email: [chenhuazhaoao@gmail.com](mailto:chenhuazhaoao@gmail.com)

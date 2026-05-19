@@ -1,161 +1,187 @@
 # 上架清单 · 你（人）需要做的事
 
-> 这份是**操作手册**。Claude 没法帮你点 Apple 后台的按钮，但所有需要的内容材料都准备好了，照下面一步步走即可。
-
-## ❶ App Store Connect 应用记录
-
-需要：登录 [appstoreconnect.apple.com](https://appstoreconnect.apple.com/)
-
-1. My Apps → "+" → New App
-2. 填入：
-   - Platforms: **macOS**
-   - Name: `一年几天`（中文）/ 之后会有 localization 添加英文
-   - Primary Language: **Simplified Chinese**
-   - Bundle ID: 选择 `com.harry.dayshere`（如果列表里没有，去 Identifiers 先建一个）
-   - SKU: `dayshere-2026`
-   - User Access: Full Access
-
-3. 进入新建的应用，左侧 **App Information**：
-   - Category: Primary = **Productivity**, Secondary = **Utilities**
-   - Content Rights: 选 "No, it does not contain, show, or access third-party content"
-   - Age Rating: 点开问卷，全部选 None
-   - Copyright: `© 2026 Huazhao Chen`
-
-## ❷ 提供 1024×1024 App Icon
-
-仓库里现在只有 16/48/128 的小图。Mac App Store 强制要求 **1024×1024 PNG 无圆角无 Alpha**。
-
-**你需要：**
-- 拿到一个矢量源（SVG/Sketch/Figma 设计稿）
-- 或找设计师重画
-- 或用 [Bakery](https://apps.apple.com/cn/app/bakery-simple-icon-maker/id1575220747)、[Image2Icon](https://apps.apple.com/cn/app/image2icon-make-your-icons/id992115977) 等工具从现有 128 图升采样（**画质会差**，建议至少 512 源）
-
-放到 `icons/icon1024.png`。后续如果加入 build_signed_app.sh 自动生成 icns，把 `icon128.png` 引用换成 `icon1024.png` 即可。
-
-## ❸ 截图（Screenshots）
-
-App Store Connect 要求至少**一组** macOS 截图：
-- 1280 × 800
-- 1440 × 900
-- 2560 × 1600
-- 2880 × 1800
-
-实际只需上传**一种尺寸**（推荐 1280×800 或 2880×1800），系统会自动适配。
-
-**怎么截：**
-1. 启动 DaysHere
-2. 调到一个数据漂亮的状态（建议导入 demo backup：选择 `~/Downloads/hq-backup-2026-05-20.json`）
-3. macOS 截图：`Cmd + Shift + 4`，然后按 `Space` 锁定窗口，移到 popover 上点击截图
-4. 至少准备 3 张：
-   - 全年视图 + 沿用默认浅色主题
-   - 月视图 + 切换到 sonoma 青绿主题
-   - 设置页坐标档案区（展示多档案 + 导入导出按钮）
-
-放到 `docs/app-store/screenshots/`（已为你预留目录）。
-
-## ❹ 隐私政策托管
-
-`06-privacy-policy.md` 是源文档，但 App Store Connect 要的是 **HTTPS 公开 URL**。
-
-**最简单方案：GitHub Pages**
-
-```bash
-# 1. 在仓库根新建 gh-pages 分支
-git checkout --orphan gh-pages
-git rm -rf .
-# 2. 把 privacy-policy 转成 HTML 放进去
-mkdir -p privacy
-# 把 06-privacy-policy.md 转成 index.html（可用 pandoc 或在线工具）
-git add privacy/index.html
-git commit -m "Publish privacy policy"
-git push origin gh-pages
-# 3. 仓库 Settings → Pages → 选 gh-pages 分支 → Save
-# 4. 访问 https://leaking.github.io/DaysHere/privacy/ 确认能看见
-```
-
-把这个 URL 填到 App Store Connect → App Privacy → Privacy Policy URL。
-
-## ❺ Mac App Store 分发证书 + Provisioning Profile
-
-⚠️ 这是与 Developer ID 分发**完全不同**的链路。
-
-1. [developer.apple.com](https://developer.apple.com/account/resources/certificates/list) → Certificates → "+" → **Mac App Distribution** 和 **Mac Installer Distribution** 各创建一份
-2. Identifiers → 你的 App ID（`com.harry.dayshere`）→ 确保已勾上：
-   - iCloud（Key-Value Storage）
-   - 不需要勾 Location（这是 sandbox-only entitlement）
-3. Profiles → "+" → **Mac App Store** → 选 App ID + 上面创建的 Mac App Distribution 证书 → 下载 `.provisionprofile`
-4. 重命名为 `script/mas-distribution.provisionprofile` 放进项目（gitignore 已经 cover 任何 `embedded.provisionprofile`，建议把 mas 那个也加进 .gitignore）
-
-## ❻ 改造 build_signed_app.sh 为 MAS 打包
-
-当前 `build_signed_app.sh` 是 Developer ID 路径。Mac App Store 需要：
-
-```bash
-# 用 Mac App Distribution 证书签名
-codesign --force --options runtime --sign \
-  "3rd Party Mac Developer Application: Huazhao Chen (HYF3XBWBL2)" \
-  --entitlements <带 MAS 限制条款的 entitlements> \
-  dist/DaysHere.app
-
-# 用 Mac Installer Distribution 证书打 pkg
-productbuild --component dist/DaysHere.app /Applications \
-  --sign "3rd Party Mac Developer Installer: Huazhao Chen (HYF3XBWBL2)" \
-  dist/DaysHere.pkg
-```
-
-可以让 Claude 后续帮你写 `build_mas_app.sh`（这个我能做，等需要 MAS 上架时告诉我）。
-
-## ❼ 上传二进制
-
-两种方式：
-- **Transporter.app**（推荐，简单）— App Store 下载，登录 Apple ID，把 `DaysHere.pkg` 拖进去上传
-- **xcrun altool / notarytool**（命令行）
-
-上传后 1-15 分钟在 App Store Connect 的 "TestFlight" 或 "Builds" 里看到新版本，绑定到你的 App 记录。
-
-## ❽ 填材料
-
-打开 App Store Connect 你的 App → 选择对应 version → 填这几栏（材料都在本目录）：
-
-| 字段 | 复制自 |
-|---|---|
-| Subtitle | `01-app-info.md` 副标题 |
-| Description（zh-Hans） | `02-description-zh.md` |
-| Description（en-US） | `02-description-en.md` |
-| Keywords（zh-Hans） | `03-keywords.md` 中文一段 |
-| Keywords（en-US） | `03-keywords.md` 英文一段 |
-| Promotional Text | `04-promotional-text.md` |
-| What's New | `05-whats-new.md` v1.0.0 |
-| Privacy Policy URL | 步骤 ❹ 拿到的 GitHub Pages URL |
-| App Review Information → Notes | `07-app-review-info.md` |
-| Sign-in Information | "No" |
-| Demo Account | 空（不适用） |
-| Screenshots | 步骤 ❸ 拍的图 |
-
-App Privacy 问卷：所有数据收集类问题都选 **No**（详见 `01-app-info.md`）。最终标签为 **Data Not Collected**。
-
-## ❾ 提交审核
-
-**Save** → 顶部 **Add for Review** → **Submit for Review**
-
-审核周期：通常 24-72 小时。如果被拒：
-- 看拒绝原因
-- 在 App Store Connect "Resolution Center" 里回复审核员
-- 90% 的拒绝是因为权限说明不清晰，或截图不真实
-
-## ❿ 上架后
-
-- 监控 App Store Connect → Sales and Trends
-- 用户评价：定期回复
-- 后续更新走相同流程（步骤 ❺~❾ 重复，材料只改 `05-whats-new.md`）
+> 这份是**操作手册**。Claude 已经把能做的都做完了，剩下都是必须用浏览器登录 Apple 后台才能完成的。逐条勾掉就上线了。
+>
+> **Apple ID**：742223410@qq.com（登录用，不公开）
+> **公开联系邮箱**：chenhuazhaoao@gmail.com（隐私政策、审核备注、用户反馈邮箱）
 
 ---
 
-## 我（Claude）现在能继续帮你做的事
+## ✅ Claude 已完成
 
-- 写 MAS 版本的 `build_mas_app.sh`（步骤 ❻）
-- 把 `06-privacy-policy.md` 转成 HTML 准备 GitHub Pages 部署（步骤 ❹）
-- 写 GitHub Actions 自动化（每次 push tag → 自动签 + 上传 Transporter）
-- App 内嵌一个"关于"页面，里面放隐私政策 URL（提交审核会更顺）
+| 项 | 状态 |
+|---|---|
+| 1024×1024 应用图标 | `icons/icon1024.png` |
+| App Store 截图 (3 张 2560×1600 + 1 张 share card) | `docs/app-store/screenshots/` |
+| 隐私政策托管 | https://leaking.github.io/DaysHere/privacy/ |
+| MAS 打包脚本 | `script/build_mas_app.sh` |
+| MAS entitlements 模板 | `script/HengqinTracker.entitlements.mas` |
+| 所有上架文案（描述、关键词、推广文、审核备注） | `docs/app-store/01~07` |
 
-需要时直接说。
+---
+
+## ❶ App Store Connect 应用记录（5 分钟）
+
+登录 [appstoreconnect.apple.com](https://appstoreconnect.apple.com/)（用 `742223410@qq.com`）：
+
+1. **My Apps → +（左上） → New App**
+2. 填入：
+
+   | 字段 | 值 |
+   |---|---|
+   | Platforms | ☑ macOS |
+   | Name | `一年几天` |
+   | Primary Language | 简体中文 |
+   | Bundle ID | `com.harry.dayshere`（下拉选；如果没有，跳到下面 ❷ 注册 App ID 再回来） |
+   | SKU | `dayshere-2026` |
+   | User Access | Full Access |
+
+3. 进入新建的应用，左侧 **App Information**：
+   - Category: Primary = **Productivity**，Secondary = **Utilities**
+   - Content Rights: "No"
+   - **Age Rating** → 点 Set up → 问卷全部 None → 提交得 4+
+   - **Copyright**: `© 2026 Huazhao Chen`
+   - **Privacy Policy URL**: `https://leaking.github.io/DaysHere/privacy/`
+
+4. 左侧 **App Privacy** → Get Started → "Does this app collect any data?" 选 **"No, we do not collect data from this app"** → 保存（最终徽章会显示 "Data Not Collected"）
+
+---
+
+## ❷ developer.apple.com 准备 App ID 与证书
+
+登录 [developer.apple.com/account](https://developer.apple.com/account)（同样 `742223410@qq.com`）：
+
+### App ID（可能已存在，先去看一眼）
+
+**Identifiers** → 搜索 `com.harry.dayshere`：
+
+- 存在：点进去，确保以下 capabilities 已勾：
+  - ☑ iCloud（点配置 → 选 **CloudKit** + **Key-Value storage**；这两个一起勾）
+- 不存在：**+** → App IDs → App → Explicit `com.harry.dayshere`，勾上上面那些 capabilities
+
+### 两个证书（如果还没有）
+
+**Certificates → +**：
+
+| 证书类型 | 用途 |
+|---|---|
+| **3rd Party Mac Developer Application** | 签 .app |
+| **3rd Party Mac Developer Installer** | 签 .pkg |
+
+⚠️ 这两个**不是** Developer ID 证书（虽然名字很像）。MAS 与 Developer ID 是两条独立分发通道。
+
+生成步骤：
+1. 在你的 Mac 上"钥匙串访问.app" → 菜单 → 证书助理 → 从证书颁发机构请求证书 → 保存到磁盘得到 `.certSigningRequest`
+2. 在 developer.apple.com 后台上传那个 CSR 文件
+3. 下载生成的 `.cer` 文件，**双击**导入钥匙串
+
+完成后验证：
+
+```bash
+security find-identity -v -p codesigning | grep "3rd Party"
+```
+
+应该看到两行 `3rd Party Mac Developer Application` 和 `3rd Party Mac Developer Installer`。
+
+### Provisioning Profile
+
+**Profiles → +**：
+
+- Distribution → **Mac App Store**
+- App ID: `com.harry.dayshere`
+- Certificates: 选刚才创建的 `3rd Party Mac Developer Application` 这一份
+- Profile Name: `DaysHere MAS Distribution`
+- Generate → Download → 得到 `.provisionprofile` 文件
+- **重命名为 `mas-distribution.provisionprofile`** 放到仓库 `script/` 目录下（.gitignore 已经覆盖任何 `*.provisionprofile` 不会误提交）
+
+---
+
+## ❸ 打包 + 上传（用现成的脚本）
+
+证书和 profile 就位后：
+
+```bash
+./script/build_mas_app.sh
+```
+
+会产出 `dist/DaysHere.pkg`，签好的 MAS 包。
+
+**上传方式**（任选其一）：
+
+A. **Transporter.app**（推荐，最简单）
+- App Store 搜 "Transporter" 下载安装
+- 启动，用 742223410@qq.com 登录
+- 把 `dist/DaysHere.pkg` 拖进去 → Deliver
+- 1-15 分钟后在 App Store Connect 的 TestFlight / Builds 里看到
+
+B. **命令行**（需要先在 [appleid.apple.com](https://appleid.apple.com) 生成 App-specific password，然后存到钥匙串）
+```bash
+# 一次性把 app-specific 密码存到钥匙串
+xcrun notarytool store-credentials altool-credentials \
+    --apple-id 742223410@qq.com \
+    --team-id HYF3XBWBL2 \
+    --password <你刚生成的 app-specific 密码>
+
+# 之后每次：
+./script/build_mas_app.sh upload
+```
+
+---
+
+## ❹ 填提交材料（10 分钟）
+
+回到 App Store Connect，进入 App → 选 `1.0 Prepare for Submission`，按下表逐项复制粘贴（**全部材料**都已经在 `docs/app-store/` 里准备好）：
+
+| App Store Connect 字段 | 复制源 |
+|---|---|
+| **Subtitle** | `01-app-info.md` 副标题 → `记录我在某处住过的每一天` |
+| **Description** (zh-Hans) | `02-description-zh.md` 全文 |
+| **Description** (en-US) → 先点 + 加 English (U.S.) localization | `02-description-en.md` 全文 |
+| **Keywords** (zh-Hans) | `03-keywords.md` 中文段 |
+| **Keywords** (en-US) | `03-keywords.md` 英文段 |
+| **Promotional Text** | `04-promotional-text.md` 中文段 |
+| **Support URL** | `https://github.com/Leaking/DaysHere/issues` |
+| **Marketing URL**（可选） | `https://github.com/Leaking/DaysHere` |
+| **What's New** | `05-whats-new.md` v1.0.0 中文 |
+| **Screenshots** | 把 `docs/app-store/screenshots/01~03-*.png` 拖入（不用全部 3 张，最少 1 张即可）|
+| **App Review Information → Notes** | `07-app-review-info.md` Notes 段 |
+| **Sign-in required** | No |
+| **Demo account** | 留空 |
+| **Contact** | 名 Huazhao / 姓 Chen / 邮箱 chenhuazhaoao@gmail.com / 电话填自己愿意公开的 |
+
+**Build** 一栏：点 +, 选刚上传的 `DaysHere.pkg` 对应的构建版本。
+**App Icon**: App Store 现在自动从 .pkg 里读取，不需要单独上传。
+**Pricing and Availability**: 免费 + 地区可用性按你想要勾。
+
+---
+
+## ❺ 提交审核
+
+顶部 **Add for Review** → 浏览一遍 → **Submit for Review**
+
+审核周期：通常 24-72 小时。
+
+被拒处理：
+- 看 Apple 在 Resolution Center 里的 message
+- 90% 的拒绝是因为"用法不清晰"或"截图与功能不符"。回复就行，附补充说明
+- 如果是技术问题（崩溃、entitlement 缺失），看 Apple 给的 console log，修了重新打包重传
+
+---
+
+## ❻ 上架后
+
+- 监控 App Store Connect → Sales and Trends
+- 用户评价：定期回复
+- 后续更新：改 `05-whats-new.md` v 字段，重打包重传，提交新版本审核
+
+---
+
+## 用 Claude 帮忙的快捷调用
+
+| 我说的命令 | 我会做的事 |
+|---|---|
+| "改一下应用描述" | 修改 `02-description-{zh,en}.md`，下次提交审核会同步更新 |
+| "重生成截图" | 修改 `AssetGenerator.swift` 然后跑 `swift run HengqinTracker --generate-assets --out .` |
+| "version 1.1 release notes" | 改 `05-whats-new.md` 加新段 |
+| "迁移到付费 X 元" | 改 `01-app-info.md` 价格段 + 提醒你 App Store Connect 里改价格 |
+| "改隐私政策" | 改 `06-privacy-policy.md` + `gh-pages/privacy/index.html` |

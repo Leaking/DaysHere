@@ -134,18 +134,26 @@ mkdir -p "$APP_MACOS" "$APP_RESOURCES"
 cp "$BUILD_BINARY" "$APP_BINARY"
 chmod +x "$APP_BINARY"
 
-# Build .icns if we have the high-res icon source
-if [[ -f "$ROOT_DIR/icons/icon128.png" ]]; then
+# Build .icns from the highest-resolution source available.
+ICON_SOURCE=""
+for candidate in icon1024.png icon512.png icon128.png; do
+    if [[ -f "$ROOT_DIR/icons/$candidate" ]]; then
+        ICON_SOURCE="$ROOT_DIR/icons/$candidate"
+        break
+    fi
+done
+
+if [[ -n "$ICON_SOURCE" ]]; then
     ICONSET="$(mktemp -d)/AppIcon.iconset"
     mkdir -p "$ICONSET"
     # iconutil requires a complete iconset with specific names.
-    # We upscale from icon128 — quality won't be amazing but ships.
     for sz in 16 32 64 128 256 512; do
-        sips -z "$sz" "$sz" "$ROOT_DIR/icons/icon128.png" --out "$ICONSET/icon_${sz}x${sz}.png" >/dev/null 2>&1 || true
+        sips -z "$sz" "$sz" "$ICON_SOURCE" --out "$ICONSET/icon_${sz}x${sz}.png" >/dev/null 2>&1 || true
         retina_sz=$((sz * 2))
-        sips -z "$retina_sz" "$retina_sz" "$ROOT_DIR/icons/icon128.png" --out "$ICONSET/icon_${sz}x${sz}@2x.png" >/dev/null 2>&1 || true
+        sips -z "$retina_sz" "$retina_sz" "$ICON_SOURCE" --out "$ICONSET/icon_${sz}x${sz}@2x.png" >/dev/null 2>&1 || true
     done
-    iconutil -c icns "$ICONSET" -o "$APP_RESOURCES/AppIcon.icns" 2>/dev/null && echo "  · AppIcon.icns generated" || true
+    iconutil -c icns "$ICONSET" -o "$APP_RESOURCES/AppIcon.icns" 2>/dev/null && \
+        echo "  · AppIcon.icns generated from $(basename "$ICON_SOURCE")" || true
     rm -rf "$(dirname "$ICONSET")"
 fi
 

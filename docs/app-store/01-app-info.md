@@ -10,6 +10,11 @@
 | Team ID | `HYF3XBWBL2` |
 | SKU（自定义编号） | `dayshere-2026` |
 | Primary Language | Simplified Chinese (zh-Hans) |
+| Apple ID 邮箱（登录用） | 742223410@qq.com |
+| 公开联系邮箱（用户/审核） | chenhuazhaoao@gmail.com |
+
+> Apple ID 邮箱用于登录 App Store Connect / developer.apple.com，不对外公开。
+> 公开联系邮箱出现在隐私政策、应用描述、审核备注里，用户能看到。两者建议保持区分。
 
 ## 副标题（Subtitle，最多 30 字符）
 
