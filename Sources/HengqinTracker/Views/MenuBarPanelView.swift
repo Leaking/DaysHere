@@ -46,6 +46,7 @@ struct MenuBarPanelView: View {
                         selectedRecord: store.record(for: selectedDate),
                         selectedKind: store.heatmapKind(for: selectedDate),
                         exportMessage: store.exportMessage,
+                        onShare: { store.copyDashboardImage() },
                         onOpenSettings: openSettings
                     )
                 }
@@ -128,10 +129,11 @@ private struct PanelHeader: View {
             )
 
             VStack(alignment: .leading, spacing: 1) {
-                Text("横琴驻留追踪")
+                Text(profileName)
                     .font(.system(size: 13.5, weight: .semibold))
                     .tracking(-0.1)
-                Text("\(profileName) · 2026 年度 · 截至 \(today.rawValue)")
+                    .lineLimit(1)
+                Text("一年几天 · 2026 年度 · 截至 \(today.rawValue)")
                     .font(.system(size: 10.5))
                     .foregroundStyle(.secondary)
             }
@@ -289,6 +291,7 @@ private struct PanelFooter: View {
     let selectedRecord: DayRecord?
     let selectedKind: HeatmapKind
     let exportMessage: String?
+    let onShare: () -> Void
     let onOpenSettings: () -> Void
 
     var body: some View {
@@ -314,6 +317,7 @@ private struct PanelFooter: View {
                         .lineLimit(1)
                 }
 
+                FooterLink(label: "分享", systemImage: "square.on.square", action: onShare)
                 FooterLink(label: "设置", action: onOpenSettings)
             }
         }
@@ -355,19 +359,26 @@ private struct FooterLegend: View {
 
 private struct FooterLink: View {
     let label: String
+    var systemImage: String? = nil
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text(label)
-                .font(.system(size: 10.5, weight: .medium))
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(
-                    Capsule()
-                        .fill(Color.primary.opacity(0.06))
-                )
+            HStack(spacing: 4) {
+                if let systemImage {
+                    Image(systemName: systemImage)
+                        .font(.system(size: 10, weight: .medium))
+                }
+                Text(label)
+                    .font(.system(size: 10.5, weight: .medium))
+            }
+            .foregroundStyle(.primary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(
+                Capsule()
+                    .fill(Color.primary.opacity(0.06))
+            )
         }
         .buttonStyle(.plain)
     }

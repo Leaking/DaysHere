@@ -42,7 +42,7 @@ set -euo pipefail
 # ─── Defaults ─────────────────────────────────────────────────
 BUNDLE_ID="${BUNDLE_ID:-com.harry.dayshere}"
 APP_NAME="${APP_NAME:-HengqinTracker}"
-APP_DISPLAY_NAME="${APP_DISPLAY_NAME:-横琴驻留追踪}"
+APP_DISPLAY_NAME="${APP_DISPLAY_NAME:-一年几天}"
 APP_VERSION="${APP_VERSION:-1.0.0}"
 MIN_SYSTEM_VERSION="15.0"
 
@@ -182,7 +182,7 @@ cat >"$INFO_PLIST" <<PLIST
   <key>NSHumanReadableCopyright</key>
   <string>© 2026 Huazhao Chen</string>
   <key>NSLocationWhenInUseUsageDescription</key>
-  <string>用于在"在地图上选择…"中标定坐标档案的中心点</string>
+  <string>"一年几天"用于在"在地图上选择…"中标定坐标档案的中心点</string>
 </dict>
 </plist>
 PLIST

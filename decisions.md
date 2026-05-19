@@ -42,6 +42,26 @@
   - 档案列表**不**走 iCloud（不同 Mac 关心的档案集合可能不同），仅 records 走云
   - 至少保留一个档案（删除按钮在只剩一个时禁用）
 
+## 变更记录 - 2026-05-20 (d)
+
+- **上下文**：产品确认对外名称 = 「一年几天」/ DaysHere；面板标题应反映当前坐标档案以增强多档案语境；底部需要加"分享"按钮支持快速复制看板图
+- **关键变更**
+  - 产品名：`script/build_signed_app.sh` 默认 `APP_DISPLAY_NAME=一年几天`；菜单栏 tooltip `一年几天 · DaysHere`；菜单栏标题 `<N> 天`（去掉"横"字前缀）；设置窗标题 `一年几天 · 设置`；NSLocationWhenInUseUsageDescription 文案带上产品名
+  - PanelHeader：标题改成 `profileName`；副标题改成 `一年几天 · 2026 年度 · 截至 …`
+  - PanelFooter：删除"导出"链接（保留 `store.exportHeatmapImage` 方法以备未来调用）；新增"分享"链接（带 `square.on.square` icon）→ `store.copyDashboardImage()`
+  - ResidencyStore：新增 `copyDashboardImage()` —— 复用 HeatmapExportView 渲染 + NSPasteboard 复制；toast 提示"已复制图片到剪贴板"；抽出 `renderShareableImage()` 内部辅助方法
+  - FooterLink：支持可选 `systemImage` 参数（用 HStack { icon, text } 排版）
+  - 上架材料：新建 `docs/app-store/` 8 份文档（应用信息、中英文描述、关键词、推广文案、What's New、隐私政策、Review 备注、上架清单）+ `screenshots/` 占位目录
+  - SPEC.md：产品名标题改 + Last updated → d；§9.1 面板示意图更新；指出导出按钮已移除
+- **理由**：
+  - "一年几天"名字脱离了横琴单一场景，更准确反映"任意地点驻留计数"的产品定位；横琴仍是默认 profile
+  - 标题显示 profile 名让多档案切换时上下文一目了然；副标题保留产品名作为品牌印记
+  - 分享按钮使用复用的 HeatmapExportView 保证视觉一致性，且不需要额外维护一份"分享专用"视图
+- **后续影响**：
+  - App Store Connect 上架以"一年几天"作为主名称
+  - 二进制名仍为 HengqinTracker（避免破坏签名 + 路径），仅显示名变化
+  - 上架材料按 `docs/app-store/08-submission-checklist.md` 走，Claude 帮不上忙的步骤（1024 icon、截图、Privacy URL 托管、MAS 证书）已明确列出
+
 ## 变更记录 - 2026-05-20 (c)
 
 - **上下文**：

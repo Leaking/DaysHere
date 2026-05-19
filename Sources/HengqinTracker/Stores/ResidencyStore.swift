@@ -209,6 +209,36 @@ final class ResidencyStore: ObservableObject {
 
     // MARK: - Heatmap export image
 
+    /// Render a shareable dashboard image and copy it to the system pasteboard.
+    /// The shape matches the file-export view so the look is consistent.
+    func copyDashboardImage() {
+        guard let image = renderShareableImage() else {
+            exportMessage = "复制失败：无法生成图片"
+            return
+        }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.writeObjects([image])
+        exportMessage = "已复制图片到剪贴板"
+    }
+
+    private func renderShareableImage() -> NSImage? {
+        let snapshot = HeatmapSnapshot(
+            records: records,
+            stats: stats,
+            today: today,
+            theme: theme
+        )
+        let exportView = HeatmapExportView(snapshot: snapshot)
+            .frame(width: 980, height: 420)
+            .environment(\.colorScheme, .light)
+
+        let renderer = ImageRenderer(content: exportView)
+        renderer.proposedSize = ProposedViewSize(width: 980, height: 420)
+        renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
+        return renderer.nsImage
+    }
+
     func exportHeatmapImage() {
         let snapshot = HeatmapSnapshot(
             records: records,

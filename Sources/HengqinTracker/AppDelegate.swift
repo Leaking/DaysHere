@@ -27,7 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             return
         }
 
-        let title = "横 \(store.stats.naturalDays)"
+        let title = "\(store.stats.naturalDays) 天"
         button.attributedTitle = NSAttributedString(
             string: title,
             attributes: [
@@ -35,7 +35,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                 .foregroundColor: NSColor.labelColor
             ]
         )
-        button.toolTip = "横琴驻留追踪"
+        button.toolTip = "一年几天 · DaysHere"
         button.target = self
         button.action = #selector(togglePopover(_:))
 
@@ -98,7 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let view = SettingsView(store: store, sync: store.sync, profileStore: profileStore)
         let controller = NSHostingController(rootView: view)
         let window = NSWindow(contentViewController: controller)
-        window.title = "HengqinTracker 设置"
+        window.title = "一年几天 · 设置"
         window.titlebarAppearsTransparent = false
         window.styleMask = [.titled, .closable]
         window.isReleasedWhenClosed = false
