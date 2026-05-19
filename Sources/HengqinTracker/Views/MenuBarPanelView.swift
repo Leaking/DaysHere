@@ -173,25 +173,27 @@ private struct ThemeSwatch: View {
     let onTap: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
-            ZStack {
-                Circle()
-                    .fill(item.background)
-                    .frame(width: active ? 14 : 12, height: active ? 14 : 12)
-                    .overlay(
-                        Circle()
-                            .stroke(Color.white.opacity(0.6), lineWidth: 0.5)
-                    )
-                if active {
+        // Use onTapGesture instead of Button — macOS Buttons (even .plain)
+        // can show a system focus ring on the last-clicked control, which
+        // visually conflicts with our own "active" indicator and made the
+        // previously-clicked swatch look selected even after switching themes.
+        ZStack {
+            Circle()
+                .fill(item.background)
+                .frame(width: active ? 14 : 12, height: active ? 14 : 12)
+                .overlay(
                     Circle()
-                        .stroke(Color.primary.opacity(0.85), lineWidth: 1.4)
-                        .frame(width: 18, height: 18)
-                }
+                        .stroke(Color.white.opacity(0.6), lineWidth: 0.5)
+                )
+            if active {
+                Circle()
+                    .stroke(Color.primary.opacity(0.85), lineWidth: 1.4)
+                    .frame(width: 18, height: 18)
             }
-            .frame(width: 20, height: 20)
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .frame(width: 20, height: 20)
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onTap)
     }
 }
 

@@ -169,12 +169,15 @@ struct LocationPickerSheet: View {
 
     private var mapBody: some View {
         ZStack {
+            // One consolidated handler fires throughout the gesture so
+            // currentCoordinate is always the latest center the user sees.
+            // Using two separate .onMapCameraChange modifiers (one .continuous +
+            // one .onEnd) caused the second to silently override the first on
+            // some macOS 15 builds, leaving currentCoordinate stale.
             Map(position: $position)
                 .onMapCameraChange(frequency: .continuous) { context in
                     currentCoordinate = context.region.center
-                }
-                .onMapCameraChange(frequency: .onEnd) { context in
-                    debounceReverseGeocode(context.region.center)
+                    debounceReverseGeocode(currentCoordinate)
                 }
 
             // Center pin — always indicates the picked coordinate.
@@ -242,9 +245,15 @@ struct LocationPickerSheet: View {
             Spacer()
             Button("取消") { dismiss() }
             Button("使用此处") {
+                // Belt-and-braces: read the freshest center we can. The
+                // position binding reflects user pan/zoom directly even if
+                // onMapCameraChange happened to drop a frame.
+                let coord = position.region?.center
+                    ?? position.camera?.centerCoordinate
+                    ?? currentCoordinate
                 let picked = PickedLocation(
-                    latitude: currentCoordinate.latitude,
-                    longitude: currentCoordinate.longitude,
+                    latitude: coord.latitude,
+                    longitude: coord.longitude,
                     addressLabel: addressLabel
                 )
                 onPick(picked)

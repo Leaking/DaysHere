@@ -23,7 +23,8 @@ struct HeatmapExportView: View {
                 today: snapshot.today,
                 theme: snapshot.theme,
                 cellSize: 13,
-                gap: 3
+                gap: 3,
+                scrollable: false
             )
 
             LegendView(theme: snapshot.theme)

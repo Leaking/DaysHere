@@ -11,6 +11,9 @@ struct YearHeatmapView: View {
     var onAction: ((DateKey, DayRecordAction) -> Void)?
     var cellSize: CGFloat = 9
     var gap: CGFloat = 2
+    /// Set to false when rendering through `ImageRenderer` — ScrollView
+    /// content collapses to 0 inside ImageRenderer, dropping the heatmap.
+    var scrollable: Bool = true
 
     private let layout = YearHeatmapLayout(year: 2026, weekStart: .monday)
     private let calculator = ResidencyCalculator(calendar: HolidayCalendar2026())
@@ -18,19 +21,29 @@ struct YearHeatmapView: View {
     @State private var pulse = false
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            ZStack(alignment: .topLeading) {
-                monthLabels
-                weekdayLabels
-                cells
+        Group {
+            if scrollable {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    heatmapContent
+                }
+            } else {
+                heatmapContent
             }
-            .frame(width: totalWidth, height: totalHeight, alignment: .topLeading)
         }
         .onAppear {
             withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
                 pulse.toggle()
             }
         }
+    }
+
+    private var heatmapContent: some View {
+        ZStack(alignment: .topLeading) {
+            monthLabels
+            weekdayLabels
+            cells
+        }
+        .frame(width: totalWidth, height: totalHeight, alignment: .topLeading)
     }
 
     private var monthLabelHeight: CGFloat { 16 }
