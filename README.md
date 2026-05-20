@@ -1,47 +1,60 @@
-# 横琴天数小工具
+# 一年几天 / DaysHere
 
-一款 Chrome 浏览器扩展，帮助你统计在珠海横琴粤澳深度合作区的年度驻留天数。
+一款 macOS 菜单栏原生应用，帮助你统计自己一年内在**任意关心的地点**实际驻留的天数。
 
-## 功能
+产品起源场景是 **珠海横琴粤澳深度合作区** 的法定居住认证（默认坐标档案 = 横琴，目标 **183 自然日 / 124 工作日**），通过多坐标档案可以覆盖任何地点。
 
-- **自动定位打卡** — 基于 GPS 自动判断是否在横琴（8km 范围），每 30 分钟后台检测一次
-- **年度进度追踪** — 实时统计自然日（目标 183 天）和工作日（目标 124 天），显示进度偏差
-- **日历视图** — 按月查看每日状态，颜色区分在横琴 / 请假 / 桥接 / 不在横琴
-- **假期桥接** — 法定假期前后都在横琴，假期自动计入（如国庆前后在横琴，10/1-10/7 全部桥接）
-- **手动标记** — 右键日期可手动标记"在横琴"或"请假"，支持多选批量操作
-- **数据导入导出** — 支持 JSON 格式导入导出，数据通过 Google 账号跨设备同步
+技术栈：纯 SwiftUI + AppKit（NSPopover + NSWindow），CoreLocation + MapKit，iCloud KVS 跨设备同步。无外部依赖。
+
+---
 
 ## 截图
 
 <p align="center">
-  <img src="promo/screenshot.png" width="340" alt="横琴天数小工具截图">
+  <img src="docs/app-store/screenshots/01-main.png" width="640" alt="一年几天 主面板">
 </p>
-
-## 安装
-
-从 Chrome Web Store 安装：
-
-**[横琴天数小工具](https://chromewebstore.google.com/detail/lbbjahidndncgkgaljeebohdmajdnefe)**
 
 ---
 
-## macOS 菜单栏插件
-
-仓库内 `Sources/HengqinTracker/` 是同名功能的 macOS 菜单栏原生应用，纯 SwiftUI / AppKit。
-
-### 本地开发
+## 本地开发
 
 ```bash
-swift build       # 编译
-swift run HengqinTracker
-swift test        # 单元测试
+swift build                 # 编译
+swift run HengqinTracker    # 运行（裸构建，无 iCloud / 无签名）
+swift test                  # 单元测试（HengqinCoreTests）
 ```
 
 启动后菜单栏右侧会出现 `横 NNN`，点击展开年/月热力图面板。
 
-### 数据导入 / 导出
+> 裸 `swift run` 没有 entitlement，设置页会显示 "iCloud 同步不可用 · 当前为未签名构建"。本地数据、导入导出、定位、地图选点全部可用。
 
-面板底部「设置」 → 「数据」区域，可导入或导出与 Chrome 扩展兼容的 JSON 备份格式：
+---
+
+## 项目结构
+
+```
+Sources/
+├── HengqinCore/        # 纯业务逻辑（日期 / 假期 / 桥接 / 统计），无 UI 依赖
+└── HengqinTracker/     # 应用层（SwiftUI 视图 / AppKit 集成 / 存储 / iCloud）
+    ├── Models/
+    ├── Stores/
+    ├── Views/
+    └── Support/
+Tests/HengqinCoreTests/  # XCTest 单元测试，覆盖统计 / 桥接 / 备份 / 档案
+script/                  # 构建 + 签名 + MAS 打包脚本
+docs/app-store/          # App Store 上架文案与素材
+icons/icon1024.png       # 应用图标主源（构建脚本会生成 .icns）
+SPEC.md                  # 业务规格权威源（修改业务逻辑必须同步）
+decisions.md             # 决策日志（每次业务变更追加一条）
+```
+
+---
+
+## 数据导入 / 导出
+
+设置面板 → 坐标档案 → 每行右侧 4 个图标：⬇导入 / ⬆导出 / ✏编辑 / 🗑删除。
+
+JSON 格式：
 
 ```json
 {
@@ -53,11 +66,13 @@ swift test        # 单元测试
 }
 ```
 
-**导入会完全覆盖**当前本地数据（弹出二次确认）。
+**导入会完全覆盖**对应档案的本地数据（弹出二次确认）。
 
-### 签名打包 / iCloud 跨设备同步
+---
 
-仓库内 `script/build_signed_app.sh` 一键产出 Developer ID 签名后的 `.app`，并在条件满足时自动启用 iCloud KVS 跨设备同步。
+## 签名打包 / iCloud 跨设备同步
+
+`script/build_signed_app.sh` 一键产出 Developer ID 签名后的 `.app`，并在条件满足时自动启用 iCloud KVS 跨设备同步。
 
 ```bash
 ./script/build_signed_app.sh                 # 只 build + 签名
@@ -65,7 +80,7 @@ swift test        # 单元测试
 ./script/build_signed_app.sh install run     # …并立即启动
 ```
 
-#### 两种模式
+### 两种模式
 
 | 模式 | 触发条件 | 启用功能 |
 |---|---|---|
@@ -74,7 +89,7 @@ swift test        # 单元测试
 
 脚本会自动探测 provisioning profile 是否存在并选择对应的 entitlements。**LITE 模式现在就能跑**，FULL 模式需要先完成下面这一次性的 Apple Developer 后台配置。
 
-#### 启用 iCloud 同步（一次性配置）
+### 启用 iCloud 同步（一次性配置）
 
 整套机制是：限制性 entitlement（`com.apple.developer.ubiquity-kvstore-identifier`）必须由一份嵌入的 provisioning profile 授权，否则 launchd 拒绝启动（错误 153，`taskgated: "no eligible provisioning profiles found"`）。
 
@@ -90,7 +105,11 @@ swift test        # 单元测试
 
 控制台 / 设置页应能看到「已同步」状态。两台 Mac 同登 Apple ID + 同样的 `.app`，记录会自动双向合并（系统 last-write-wins）。
 
-#### Notarization（仅当要分发到其他人电脑时）
+### Mac App Store 打包
+
+`script/build_mas_app.sh` 产出可上传到 App Store Connect 的 `.pkg`。详见 `docs/app-store/`。
+
+### Notarization（仅当要分发到其他人电脑时）
 
 只在自己几台 Mac 间使用，可以**跳过** notarization（Gatekeeper 不会阻止你自己签的本地拷贝）。
 如果要给别人，需要：
@@ -101,6 +120,3 @@ xcrun notarytool submit dist/HengqinTracker.app.zip \
     --wait
 xcrun stapler staple dist/HengqinTracker.app
 ```
-
-裸 `swift run` 没签名也没 entitlement，设置页会显示「不可用 · 未登录 iCloud，或当前为未签名构建」，本地导入/导出依旧可用。
-
