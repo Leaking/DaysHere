@@ -127,9 +127,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let controller = NSHostingController(rootView: view)
         let window = NSWindow(contentViewController: controller)
         window.title = "一年几天 · 设置"
-        window.titlebarAppearsTransparent = false
-        window.styleMask = [.titled, .closable]
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.styleMask = [.titled, .closable, .resizable, .fullSizeContentView]
+        window.isMovableByWindowBackground = true
         window.isReleasedWhenClosed = false
+        window.setContentSize(NSSize(width: 600, height: 720))
         window.center()
         settingsWindow = window
 

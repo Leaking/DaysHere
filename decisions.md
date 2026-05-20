@@ -135,3 +135,13 @@
   - 版本号 2.5.0 → 2.6.0
 - **理由**：183 自然日目标中，非工作日（周末/法定假日）本身不应因 GPS 在横琴就自动计入，只有通过桥接规则覆盖时才计入，与业务规则一致
 - **后续影响**：非工作日即使 GPS 检测到在横琴也不再显示绿色，减少用户困惑；统计数字可能比之前低（排除了非工作日的误计）
+
+## 变更记录 - 2026-05-20
+
+- **上下文**：Chrome 扩展形态已不再维护，所有用户活跃在 macOS App 上；继续保留 JS / manifest / popup / offscreen / utils 目录只会让仓库目录树和 SPEC 双端形态描述继续误导新开发者
+- **关键变更**
+  - 删除 Chrome 扩展全部资源：`manifest.json`、`background/`、`offscreen/`、`popup/`、`utils/`、`promo/`（Chrome Web Store 商店素材）、`icons/icon16.png`/`icon48.png`/`icon128.png`（仅 Chrome 用的小尺寸；保留 `icon1024.png` 供 Mac App 构建脚本生成 `.icns`）
+  - 重写 `README.md` / `CLAUDE.md` / `AGENTS.md`，去除"双端形态"叙述，开发指引收敛到 `swift build / run / test` 与 `script/build_signed_app.sh`
+  - 更新 `SPEC.md`：§1 改为单形态"macOS 菜单栏 App"，删除 §3.3「与 Chrome 扩展的关系」，Appendix A 技术栈表移除 Chrome 行；仅在历史背景脚注与 JSON 兼容性说明里保留对老形态的指代
+- **理由**：仓库唯一支持的产品形态为 macOS App；保留废弃代码会持续让搜索结果、Spec 表格、README 引导新人去看不存在的入口
+- **后续影响**：纯 Swift 工程，构建脚本与 `Sources/` 不受影响；导入导出 JSON 仍兼容历史扩展导出的格式，老用户可一次性迁移到 macOS App 后丢弃扩展
