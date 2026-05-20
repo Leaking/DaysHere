@@ -34,19 +34,30 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                header
-                profilesSection
-                launchSection
-                syncSection
-                Spacer(minLength: 0)
-                footer
+        ZStack {
+            // Same translucent theme gradient as the dashboard panel so the
+            // window feels like a continuation of the popover.
+            store.theme.background
+                .opacity(0.42)
+                .ignoresSafeArea()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    heroHeader
+                    backupCard
+                    profilesCard
+                    syncCard
+                    launchCard
+                    aboutFooter
+                }
+                .padding(.horizontal, 22)
+                .padding(.top, 18)
+                .padding(.bottom, 22)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(22)
+            .scrollIndicators(.hidden)
         }
-        .frame(width: 520, height: 620)
-        .background(.background)
+        .frame(minWidth: 560, idealWidth: 600, minHeight: 620, idealHeight: 720)
         .onAppear { launchManager.refresh() }
         .sheet(item: $profileSheet) { sheet in
             switch sheet {
@@ -95,62 +106,150 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Sections
+    // MARK: - Hero header
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text("设置")
-                .font(.system(size: 17, weight: .semibold))
-            Text("每个坐标档案独立存储日记录、独立 iCloud 同步、独立导入导出")
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
+    private var heroHeader: some View {
+        HStack(alignment: .center, spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(LinearGradient(
+                        colors: [
+                            Color(red: 0.239, green: 0.753, blue: 0.478),
+                            Color(red: 0.122, green: 0.478, blue: 0.298)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ))
+                    .shadow(color: Color(red: 0.122, green: 0.478, blue: 0.298).opacity(0.30), radius: 6, x: 0, y: 2)
+                Text("横")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+            }
+            .frame(width: 34, height: 34)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("一年几天 · 设置")
+                    .font(.system(size: 17, weight: .semibold))
+                Text("管理坐标档案、数据备份与 iCloud 同步")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer()
         }
     }
 
-    private var profilesSection: some View {
-        section(title: "坐标档案") {
-            VStack(alignment: .leading, spacing: 10) {
+    // MARK: - Backup hero card (primary import/export entry)
+
+    private var backupCard: some View {
+        let activeProfile = profileStore.activeProfile
+        let recordCount = store.records.count
+
+        return CardSection(title: "数据备份", subtitle: "导入会完全覆盖目标档案，导出生成可跨设备分享的 JSON。") {
+            VStack(alignment: .leading, spacing: 14) {
                 HStack(spacing: 8) {
-                    Text("当前档案")
-                        .font(.system(size: 11, weight: .medium))
+                    Image(systemName: "internaldrive")
+                        .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(.secondary)
-                    Picker("", selection: Binding(
-                        get: { profileStore.activeProfile.id },
-                        set: { profileStore.setActive($0) }
-                    )) {
-                        ForEach(profileStore.collection.profiles) { profile in
-                            Text(profile.name).tag(profile.id)
-                        }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .controlSize(.small)
-                    .frame(maxWidth: 200)
+                    Text("当前档案")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                    Text(activeProfile.name)
+                        .font(.system(size: 12.5, weight: .semibold))
+                    Text("· \(recordCount) 天")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
                     Spacer()
-                    Button {
-                        profileSheet = .create
-                    } label: {
-                        Label("新增", systemImage: "plus")
-                    }
-                    .controlSize(.small)
                 }
 
-                VStack(spacing: 6) {
-                    ForEach(profileStore.collection.profiles) { profile in
-                        profileRow(profile)
+                HStack(spacing: 10) {
+                    BackupActionButton(
+                        title: "导入备份…",
+                        systemImage: "square.and.arrow.down.on.square",
+                        description: "从 JSON 替换当前档案",
+                        prominent: true
+                    ) {
+                        triggerImport(into: activeProfile)
+                    }
+
+                    BackupActionButton(
+                        title: "导出当前档案…",
+                        systemImage: "square.and.arrow.up.on.square",
+                        description: "保存为 .json 备份",
+                        prominent: false
+                    ) {
+                        triggerExport(of: activeProfile)
                     }
                 }
 
                 if let inlineMessage {
-                    Text(inlineMessage)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.green)
+                    statusBanner(
+                        icon: "checkmark.circle.fill",
+                        text: inlineMessage,
+                        tint: Color(red: 0.184, green: 0.561, blue: 0.247)
+                    )
                 }
                 if let lastError {
-                    Text(lastError)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.red)
-                        .textSelection(.enabled)
+                    statusBanner(
+                        icon: "exclamationmark.triangle.fill",
+                        text: lastError,
+                        tint: Color(red: 0.85, green: 0.33, blue: 0.29)
+                    )
+                }
+
+                Text("有多个坐标档案？也可在下方「坐标档案」中对任意档案单独导入 / 导出。")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func statusBanner(icon: String, text: String, tint: Color) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: icon)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(tint)
+            Text(text)
+                .font(.system(size: 11.5))
+                .foregroundStyle(.primary)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(tint.opacity(0.10))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(tint.opacity(0.30), lineWidth: 0.6)
+        )
+    }
+
+    // MARK: - Profiles
+
+    private var profilesCard: some View {
+        CardSection(
+            title: "坐标档案",
+            subtitle: "每个档案独立存储日记录、独立 iCloud 同步、独立导入导出。",
+            trailing: AnyView(
+                Button {
+                    profileSheet = .create
+                } label: {
+                    Label("新增档案", systemImage: "plus")
+                        .font(.system(size: 12, weight: .medium))
+                }
+                .controlSize(.small)
+                .buttonStyle(.bordered)
+            )
+        ) {
+            VStack(spacing: 6) {
+                ForEach(profileStore.collection.profiles) { profile in
+                    profileRow(profile)
                 }
             }
         }
@@ -164,10 +263,10 @@ struct SettingsView: View {
                 .fill(isActive ? Color(red: 0.184, green: 0.561, blue: 0.247) : Color.secondary.opacity(0.4))
                 .frame(width: 7, height: 7)
 
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(profile.name)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .lineLimit(1)
                     if isActive {
                         Text("当前")
@@ -180,7 +279,7 @@ struct SettingsView: View {
                             .foregroundStyle(Color(red: 0.184, green: 0.561, blue: 0.247))
                     }
                 }
-                Text(String(format: "%.4f°N, %.4f°E · %dkm", profile.latitude, profile.longitude, Int(profile.radiusKilometers)))
+                Text(String(format: "%.4f°N, %.4f°E · %d km", profile.latitude, profile.longitude, Int(profile.radiusKilometers)))
                     .font(.system(size: 10.5))
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
@@ -188,6 +287,14 @@ struct SettingsView: View {
             }
 
             Spacer(minLength: 4)
+
+            if !isActive {
+                Button("切换") {
+                    profileStore.setActive(profile.id)
+                }
+                .controlSize(.small)
+                .buttonStyle(.bordered)
+            }
 
             HStack(spacing: 2) {
                 rowIconButton(icon: "square.and.arrow.down", help: "从 JSON 导入到「\(profile.name)」") {
@@ -209,11 +316,15 @@ struct SettingsView: View {
                 }
             }
         }
-        .padding(.vertical, 5)
-        .padding(.horizontal, 8)
+        .padding(.vertical, 7)
+        .padding(.horizontal, 10)
         .background(
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                .fill(Color.primary.opacity(isActive ? 0.05 : 0.02))
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.primary.opacity(isActive ? 0.07 : 0.03))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color.primary.opacity(isActive ? 0.10 : 0.05), lineWidth: 0.5)
         )
     }
 
@@ -228,7 +339,7 @@ struct SettingsView: View {
             Image(systemName: icon)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(tint)
-                .frame(width: 22, height: 22)
+                .frame(width: 24, height: 24)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -236,17 +347,74 @@ struct SettingsView: View {
         .help(help)
     }
 
-    private var launchSection: some View {
-        section(title: "启动") {
-            VStack(alignment: .leading, spacing: 10) {
+    // MARK: - Sync
+
+    private var syncCard: some View {
+        CardSection(
+            title: "iCloud 同步",
+            subtitle: "需以签名 .app + Developer ID provisioning profile 形式分发，详见 README。"
+        ) {
+            VStack(alignment: .leading, spacing: 12) {
+                Toggle(isOn: Binding(
+                    get: { sync.isEnabledByUser },
+                    set: { newValue in
+                        sync.isEnabledByUser = newValue
+                        if newValue { sync.push(records: store.records, force: true) }
+                    }
+                )) {
+                    Text("通过 iCloud 跨设备同步")
+                        .font(.system(size: 12.5))
+                }
+                .toggleStyle(.switch)
+                .controlSize(.regular)
+
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    StatusDot(status: sync.status)
+                    Text(sync.status.summary)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(.secondary)
+                    if let last = sync.lastSyncedAt {
+                        Text("· 上次同步 \(Self.relativeFormatter.localizedString(for: last, relativeTo: Date()))")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button {
+                        sync.pull(force: true)
+                    } label: {
+                        Label("立即拉取", systemImage: "arrow.clockwise")
+                            .font(.system(size: 11.5))
+                    }
+                    .controlSize(.small)
+                    .buttonStyle(.bordered)
+                    .help("立即拉取 iCloud 数据")
+                }
+
+                Text("不同坐标档案的数据各自独立同步（KVS key 加 profile UUID 后缀）。")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    // MARK: - Launch
+
+    private var launchCard: some View {
+        CardSection(
+            title: "启动",
+            subtitle: "通过 macOS ServiceManagement 注册为登录项，仅签名 .app 形式生效。"
+        ) {
+            VStack(alignment: .leading, spacing: 12) {
                 Toggle(isOn: Binding(
                     get: { launchManager.isEnabled },
                     set: { launchManager.setEnabled($0) }
                 )) {
                     Text("登录时自动启动")
-                        .font(.system(size: 12))
+                        .font(.system(size: 12.5))
                 }
                 .toggleStyle(.switch)
+                .controlSize(.regular)
 
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Circle()
@@ -254,7 +422,7 @@ struct SettingsView: View {
                         .frame(width: 8, height: 8)
                         .overlay(Circle().stroke(launchStatusColor.opacity(0.25), lineWidth: 3).blur(radius: 0.4))
                     Text(launchManager.statusSummary)
-                        .font(.system(size: 11))
+                        .font(.system(size: 11.5))
                         .foregroundStyle(.secondary)
                     Spacer()
                     if launchManager.requiresUserApproval {
@@ -262,23 +430,20 @@ struct SettingsView: View {
                             launchManager.openLoginItemsSettings()
                         } label: {
                             Label("打开系统设置", systemImage: "gear")
-                                .font(.system(size: 11))
+                                .font(.system(size: 11.5))
                         }
                         .controlSize(.small)
+                        .buttonStyle(.bordered)
                     }
                 }
 
                 if let err = launchManager.lastError {
-                    Text(err)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.red)
-                        .textSelection(.enabled)
+                    statusBanner(
+                        icon: "exclamationmark.triangle.fill",
+                        text: err,
+                        tint: Color(red: 0.85, green: 0.33, blue: 0.29)
+                    )
                 }
-
-                Text("通过 macOS `ServiceManagement` 注册为登录项，可随时在 系统设置 → 通用 → 登录项 中管理。仅签名 `.app` 形式（已 codesign）才会生效。")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -293,75 +458,16 @@ struct SettingsView: View {
         }
     }
 
-    private var syncSection: some View {
-        section(title: "同步") {
-            VStack(alignment: .leading, spacing: 10) {
-                Toggle(isOn: Binding(
-                    get: { sync.isEnabledByUser },
-                    set: { newValue in
-                        sync.isEnabledByUser = newValue
-                        if newValue { sync.push(records: store.records, force: true) }
-                    }
-                )) {
-                    Text("通过 iCloud 跨设备同步")
-                        .font(.system(size: 12))
-                }
-                .toggleStyle(.switch)
+    // MARK: - Footer
 
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    StatusDot(status: sync.status)
-                    Text(sync.status.summary)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                    if let last = sync.lastSyncedAt {
-                        Text("· 上次同步 \(Self.relativeFormatter.localizedString(for: last, relativeTo: Date()))")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Button {
-                        sync.pull(force: true)
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                            .font(.system(size: 11))
-                    }
-                    .help("立即拉取 iCloud 数据")
-                }
-
-                Text("不同坐标档案的数据各自独立同步（KVS key 加 profile UUID 后缀）。需以**签名 .app + Developer ID provisioning profile** 形式分发，详见 README。")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    private var footer: some View {
+    private var aboutFooter: some View {
         HStack {
-            Text("HengqinTracker · 2026 年度版")
-                .font(.system(size: 10))
+            Text("一年几天 · DaysHere · 2026 年度版")
+                .font(.system(size: 10.5))
                 .foregroundStyle(.tertiary)
             Spacer()
         }
-    }
-
-    @ViewBuilder
-    private func section<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(.system(size: 10, weight: .semibold))
-                .tracking(0.6)
-                .textCase(.uppercase)
-                .foregroundStyle(.secondary)
-
-            content()
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color.primary.opacity(0.05))
-                )
-        }
+        .padding(.top, 4)
     }
 
     // MARK: - Actions
@@ -420,6 +526,87 @@ struct SettingsView: View {
         formatter.locale = Locale(identifier: "zh_CN")
         return formatter
     }()
+}
+
+// MARK: - Reusable card
+
+private struct CardSection<Content: View>: View {
+    let title: String
+    var subtitle: String? = nil
+    var trailing: AnyView? = nil
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.system(size: 13.5, weight: .semibold))
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                Spacer(minLength: 0)
+                if let trailing { trailing }
+            }
+
+            content
+                .padding(14)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .liquidPanel(cornerRadius: 12)
+        }
+    }
+}
+
+// MARK: - Backup action button
+
+private struct BackupActionButton: View {
+    let title: String
+    let systemImage: String
+    let description: String
+    let prominent: Bool
+    let action: () -> Void
+
+    @State private var hovering: Bool = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(alignment: .center, spacing: 10) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 18, weight: .semibold))
+                    .frame(width: 22, height: 22)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.system(size: 12.5, weight: .semibold))
+                    Text(description)
+                        .font(.system(size: 10.5))
+                        .opacity(0.85)
+                }
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(prominent ? Color.white : Color.primary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(prominent ? Color.accentColor : Color.primary.opacity(0.07))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(prominent ? Color.white.opacity(0.15) : Color.primary.opacity(0.10), lineWidth: 0.6)
+            )
+            .shadow(color: prominent ? Color.accentColor.opacity(0.28) : .clear, radius: 6, x: 0, y: 2)
+            .scaleEffect(hovering ? 1.015 : 1.0)
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: hovering)
+    }
 }
 
 private struct StatusDot: View {
